@@ -1,0 +1,2241 @@
+<?php
+defined('BASEPATH') OR exit('No direct script access allowed');
+
+class Instalation extends CI_Controller {
+
+	public function __construct() {
+		parent::__construct();
+		$this->load->model('master_model');
+		$this->load->model('instalation_model');
+
+		// Your own constructor code
+		if(!$this->session->userdata('isORIlogin')){
+			redirect('login');
+		}
+	}
+
+	public function index(){
+		$controller			= ucfirst(strtolower($this->uri->segment(1)));
+		$Arr_Akses			= getAcccesmenu($controller);
+		if($Arr_Akses['read'] !='1'){
+			$this->session->set_flashdata("alert_data", "<div class=\"alert alert-warning\" id=\"flash-message\">You Don't Have Right To Access This Page, Please Contact Your Administrator....</div>");
+			redirect(site_url('dashboard'));
+		}
+
+		$data_Group			= $this->master_model->getArray('groups',array(),'id','name');
+		$data = array(
+			'title'			=> 'Indeks Of Instalation',
+			'action'		=> 'index',
+			'row_group'		=> $data_Group,
+			'akses_menu'	=> $Arr_Akses
+		);
+		history('View Data Instalation');
+		$this->load->view('Instalation/index',$data);
+	}
+
+	public function data_side_instalation(){
+		$this->instalation_model->get_json_instalation();
+	}
+
+	public function add(){
+		if($this->input->post()){
+			$Arr_Kembali		= array();
+			$data				= $this->input->post();
+			$data_session		= $this->session->userdata;
+			$dateTime			= date('Y-m-d H:i:s');
+			// print_r($data);
+			// exit;
+
+			$no_ipp			= $data['no_ipp'];
+			$project_name	= strtolower($data['project_name']);
+			$region_code	= strtolower($data['region_code']);
+			$location		= strtolower($data['location']);
+			$total_time		= $data['total_time'];
+			$tipe			= (!empty($data['tipe']))?json_encode($data['tipe']):'';
+			$bq_qty			= $data['bq_qty'];
+			$bq_mp			= $data['bq_mp'];
+			$bq_ct			= $data['bq_ct'];
+			$bq_total		= $data['bq_total'];
+			$ListDetail		= $data['ListDetail'];
+			$ListDetailBq	= $data['ListDetailBq'];
+
+			if(!empty($data['ListMeal'])){
+				$ListMeal			= $data['ListMeal'];
+			}
+			if(!empty($data['ListOvertime'])){
+				$ListOvertime		= $data['ListOvertime'];
+			}
+			if(!empty($data['ListDetailHouse'])){
+				$ListDetailHouse	= $data['ListDetailHouse'];
+			}
+			if(!empty($data['ListDetailTrans'])){
+				$ListDetailTrans	= $data['ListDetailTrans'];
+			}
+			if(!empty($data['ListDetailEtc'])){
+				$ListDetailEtc		= $data['ListDetailEtc'];
+			}
+
+			$Ym						= date('ym');
+			$Y						= date('y');
+			//pengurutan kode
+			$srcMtr			= "SELECT MAX(project_code) as maxP FROM project_header WHERE project_code LIKE 'P".$Y."%' ";
+			$numrowMtr		= $this->db->query($srcMtr)->num_rows();
+			$resultMtr		= $this->db->query($srcMtr)->result_array();
+			$angkaUrut2		= $resultMtr[0]['maxP'];
+			$urutan2		= (int)substr($angkaUrut2, 5, 4);
+			$urutan2++;
+			$urut2			= sprintf('%04s',$urutan2);
+			$project_code	= "P".$Ym.$urut2;
+			$region 		= str_replace('_',' ',$region_code);
+
+			//project_header
+			$ArrHeader = array(
+				'project_code' 	=> $project_code,
+				'no_ipp' 	=> $no_ipp,
+				'project_name' 	=> $project_name,
+				'region_code' 	=> $region_code,
+				'region' 				=> str_replace('_',' ',$region_code),
+				'location' 			=> $location,
+				'total_time' 		=> $total_time,
+				'tipe' 		=> $tipe,
+				'bq_qty' 			=> $bq_qty,
+				'bq_mp' 			=> $bq_mp,
+				'bq_ct' 			=> $bq_ct,
+				'bq_total' 		=> $bq_total,
+				'created_by' 		=> $data_session['ORI_User']['username'],
+				'created_date' 	=> $dateTime
+			);
+			//project_detail_bq
+			$ArrHeaderDetail = array();
+			foreach($ListDetailBq AS $val => $valx){
+				$ArrHeaderDetail[$val]['project_code'] 	= $project_code;
+				$ArrHeaderDetail[$val]['satuan_code'] 	= $valx['satuan_code'];
+				$ArrHeaderDetail[$val]['qty'] 					= $valx['qty'];
+				$ArrHeaderDetail[$val]['mp'] 					= $valx['mp'];
+				$ArrHeaderDetail[$val]['ct'] 					= $valx['ct'];
+				$ArrHeaderDetail[$val]['diameter'] 			= $valx['diameter'];
+				$ArrHeaderDetail[$val]['cycletime'] 			= $valx['cycletime'];
+			}
+
+			//project_detail_akomodasi
+			if(!empty($data['ListMeal'])){
+				$ArrMeal = array();
+				foreach($ListMeal AS $val => $valx){
+					$restDataAk = $this->db->query("SELECT category, spec FROM man_power_new WHERE code_group='".$valx['code_group']."' LIMIT 1 ")->result();
+					$ArrMeal[$val]['project_code']= $project_code;
+					$ArrMeal[$val]['category_ak'] = 'meal';
+					$ArrMeal[$val]['code_group'] 	= $valx['code_group'];
+					$ArrMeal[$val]['category'] 		= (!empty($restDataAk))?$restDataAk[0]->category:'not found';
+					$ArrMeal[$val]['spec'] 				= (!empty($restDataAk))?$restDataAk[0]->spec:'not found';
+					$ArrMeal[$val]['area'] 				= $valx['area'];
+					$ArrMeal[$val]['rate'] 				= rate($valx['code_group'], 'day', 'man power', "all region");
+					$ArrMeal[$val]['jml_orang'] 	= $valx['jml_orang'];
+					$ArrMeal[$val]['jml_hari'] 		= $valx['jml_hari'];
+					$ArrMeal[$val]['note'] 				= strtolower($valx['note']);
+				}
+			}
+
+			if(!empty($data['ListOvertime'])){
+				$ArrOvertime = array();
+				foreach($ListOvertime AS $val => $valx){
+					$restDataAk = $this->db->query("SELECT category, spec FROM man_power_new WHERE code_group='".$valx['code_group']."' LIMIT 1 ")->result();
+					$ArrOvertime[$val]['project_code']= $project_code;
+					$ArrOvertime[$val]['category_ak'] = 'overtime';
+					$ArrOvertime[$val]['code_group'] 	= $valx['code_group'];
+					$ArrOvertime[$val]['category'] 		= (!empty($restDataAk))?$restDataAk[0]->category:'not found';
+					$ArrOvertime[$val]['spec'] 				= (!empty($restDataAk))?$restDataAk[0]->spec:'not found';
+					$ArrOvertime[$val]['rate'] 				= rate($valx['code_group'], 'day', 'man power', "all region");
+					$ArrOvertime[$val]['jml_jam'] 		= $valx['jml_jam'];
+					$ArrOvertime[$val]['jml_orang'] 	= $valx['jml_orang'];
+					$ArrOvertime[$val]['jml_hari'] 		= $valx['jml_hari'];
+					$ArrOvertime[$val]['note'] 				= strtolower($valx['note']);
+				}
+			}
+
+			if(!empty($data['ListDetailHouse'])){
+				$ArrHouse = array();
+				foreach($ListDetailHouse AS $val => $valx){
+					$restDataHu = $this->db->query("SELECT category, spec FROM akomodasi_new WHERE code_group='".$valx['code_group']."' LIMIT 1 ")->result();
+					$ArrHouse[$val]['project_code'] = $project_code;
+					$ArrHouse[$val]['category_ak'] 	= 'house';
+					$ArrHouse[$val]['code_group'] 	= $valx['code_group'];
+					$ArrHouse[$val]['category'] 		= (!empty($restDataHu))?$restDataHu[0]->category:'not found';
+					$ArrHouse[$val]['spec'] 				= (!empty($restDataHu))?$restDataHu[0]->spec:'not found';
+					$ArrHouse[$val]['qty'] 					= $valx['qty'];
+					$ArrHouse[$val]['rate'] 			= rate($valx['code_group'], $valx['satuan'], 'akomodasi', $region_code);
+					$ArrHouse[$val]['jml_orang'] 				= $valx['value'];
+					$ArrHouse[$val]['area'] 			= $valx['satuan'];
+					$ArrHouse[$val]['note'] 				= strtolower($valx['note']);
+				}
+			}
+
+			if(!empty($data['ListDetailTrans'])){
+				$ArrTrans = array();
+				foreach($ListDetailTrans AS $val => $valx){
+					$ArrTrans[$val]['project_code'] = $project_code;
+					$ArrTrans[$val]['category_ak'] 	= 'trans';
+					$ArrTrans[$val]['category'] 		= $valx['item_cost'];
+					$ArrTrans[$val]['spec'] 		= $valx['kendaraan'];
+					$ArrTrans[$val]['asal'] 				= strtolower($valx['asal']);
+					$ArrTrans[$val]['tujuan'] 			= strtolower($valx['tujuan']);
+					$ArrTrans[$val]['pulang_pergi'] = strtolower($valx['pulang_pergi']);
+					$ArrTrans[$val]['jml_orang'] 				= $valx['value'];
+					$ArrTrans[$val]['note'] 				= strtolower($valx['note']);
+				}
+			}
+
+			if(!empty($data['ListDetailEtc'])){
+				$ArrEtc = array();
+				foreach($ListDetailEtc AS $val => $valx){
+					$restDataEtc = $this->db->query("SELECT category, spec FROM akomodasi_new WHERE code_group='".$valx['code_group']."' LIMIT 1 ")->result();
+					$ArrEtc[$val]['project_code'] = $project_code;
+					$ArrEtc[$val]['category_ak'] 	= 'etc';
+					$ArrEtc[$val]['code_group'] 	= $valx['code_group'];
+					$ArrEtc[$val]['category'] 		= (!empty($restDataEtc))?$restDataEtc[0]->category:'not found';
+					$ArrEtc[$val]['spec'] 				= (!empty($restDataEtc))?$restDataEtc[0]->spec:'not found';
+					$ArrEtc[$val]['rate'] 				= rate($valx['code_group'], 'day', 'akomodasi', $region_code);
+					$ArrEtc[$val]['qty'] 					= $valx['qty'];
+					$ArrEtc[$val]['note'] 				= strtolower($valx['note']);
+				}
+			}
+
+			//detail
+			$ArrIntHead = array();
+			$ArrInsert 	= array();
+			$ArrInsert1 = array();
+			$ArrInsert2 = array();
+			$ArrInsert3 = array();
+			$ArrInsert4 = array();
+			$nomor = 0;
+			$no_day=0;
+			$no_timeline = 0;
+			foreach($ListDetail AS $val => $valx){
+				$nomor++;
+				$numPlus = sprintf('%03s',$nomor);
+				$project_code_det = $project_code.'-'.$numPlus;
+				$code_work_detailx = $valx['code_work'].'-'.$numPlus;
+				$NmWork = $this->db->query("SELECT category FROM work_header WHERE code_work='".$valx['code_work']."' AND status='N' ")->result();
+				
+				$timeline = array();
+				for ($i=0; $i < $valx['std_time']; $i++) { 
+					$no_timeline++;
+					$timeline[] = $no_timeline;
+				}
+				$no_timeline = $no_timeline;
+
+				$ArrIntHead[$val]['project_code'] 		= $project_code;
+				$ArrIntHead[$val]['project_code_det'] 	= $project_code_det;
+				$ArrIntHead[$val]['code_work'] 			= $valx['code_work'];
+				$ArrIntHead[$val]['std_time'] 			= str_replace(',','',$valx['std_time']);
+				$ArrIntHead[$val]['category'] 			= $NmWork[0]->category;
+				$ArrIntHead[$val]['timeline'] 			= json_encode($timeline);
+
+				$no1=0;
+				if(!empty($valx['vt'])){
+					foreach($valx['vt'] AS $valvt => $valxvt){
+						
+						$restData = $this->db->query("SELECT category, spec FROM vehicle_tool_new WHERE code_group='".$valxvt['code_group']."' LIMIT 1 ")->result();
+						if(!empty($restData)){
+							$no1++;
+							$num_vt_1 					= sprintf('%03s',$nomor);
+							$num_vt_2 					= sprintf('%03s',$no1);
+							$ArrInsert1[$nomor.$no1]['project_code'] 				= $project_code;
+							$ArrInsert1[$nomor.$no1]['project_code_det'] 		= $project_code.'-'.$num_vt_1;
+							$ArrInsert1[$nomor.$no1]['code_work_detail_d'] 	= $valx['code_work'].'-'.$num_vt_1.'-'.$num_vt_2;
+							$ArrInsert1[$nomor.$no1]['code_work_detail'] 		= $valx['code_work'].'-'.$num_vt_1;
+							$ArrInsert1[$nomor.$no1]['code_work'] 					= $valx['code_work'];
+							$ArrInsert1[$nomor.$no1]['code_group'] 					= $valxvt['code_group'];
+							$ArrInsert1[$nomor.$no1]['category'] 						= $restData[0]->category;
+							$ArrInsert1[$nomor.$no1]['spec'] 								= $restData[0]->spec;
+							$ArrInsert1[$nomor.$no1]['qty'] 								= str_replace(',','',$valxvt['qty']);
+							$ArrInsert1[$nomor.$no1]['tipe'] 								= 'tools';
+							$ArrInsert1[$nomor.$no1]['rate'] 								= rate($valxvt['code_group'], $region, 'vehicle tool', $region_code);
+						}
+					}
+				}
+
+				$no2=0;
+				if(!empty($valx['cn'])){
+					foreach($valx['cn'] AS $valcn => $valxcn){
+						$restData = $this->db->query("SELECT category, spec FROM con_nonmat_new WHERE code_group='".$valxcn['code_group']."' LIMIT 1 ")->result();
+						if(!empty($restData)){
+							$no2++;
+							$num_cn_1 					= sprintf('%03s',$nomor);
+							$num_cn_2 					= sprintf('%03s',$no2);
+							$ArrInsert2[$nomor.$no2]['project_code'] 				= $project_code;
+							$ArrInsert2[$nomor.$no2]['project_code_det'] 		= $project_code.'-'.$num_cn_1;
+							$ArrInsert2[$nomor.$no2]['code_work_detail_d'] 	= $valx['code_work'].'-'.$num_cn_1.'-'.$num_cn_2;
+							$ArrInsert2[$nomor.$no2]['code_work_detail'] 		= $valx['code_work'].'-'.$num_cn_1;
+							$ArrInsert2[$nomor.$no2]['code_work'] 					= $valx['code_work'];
+							$ArrInsert2[$nomor.$no2]['code_group'] 					= $valxcn['code_group'];
+							$ArrInsert2[$nomor.$no2]['category'] 					= $restData[0]->category;
+							$ArrInsert2[$nomor.$no2]['spec'] 						= $restData[0]->spec;
+							$ArrInsert2[$nomor.$no2]['qty'] 						= str_replace(',','',$valxcn['qty']);
+							$ArrInsert2[$nomor.$no2]['unit'] 						= $valxcn['unit'];
+							$ArrInsert2[$nomor.$no2]['tipe'] 						= 'consumable';
+							$ArrInsert2[$nomor.$no2]['rate'] 						= rate($valxcn['code_group'], $valxcn['unit'], 'consumable', "all region");
+						}
+					}
+				}
+
+				$no3=0;
+				if(!empty($valx['mp'])){
+					foreach($valx['mp'] AS $valmp => $valxmp){
+						
+						$restData = $this->db->query("SELECT category, spec FROM man_power_new WHERE code_group='".$valxmp['code_group']."' LIMIT 1 ")->result();
+						if(!empty($restData)){
+							$no3++;
+							$num_mp_1 					= sprintf('%03s',$nomor);
+							$num_mp_2 					= sprintf('%03s',$no3);
+							
+							$ArrInsert3[$nomor.$no3]['project_code'] 				= $project_code;
+							$ArrInsert3[$nomor.$no3]['project_code_det'] 		= $project_code.'-'.$num_mp_1;
+							$ArrInsert3[$nomor.$no3]['code_work_detail_d'] 	= $valx['code_work'].'-'.$num_mp_1.'-'.$num_mp_2;
+							$ArrInsert3[$nomor.$no3]['code_work_detail'] 		= $valx['code_work'].'-'.$num_mp_1;
+							$ArrInsert3[$nomor.$no3]['code_work'] 					= $valx['code_work'];
+							$ArrInsert3[$nomor.$no3]['code_group'] 					= $valxmp['code_group'];
+							$ArrInsert3[$nomor.$no3]['category'] 						= get_name('man_power_category','category','id',$restData[0]->category);;
+							$ArrInsert3[$nomor.$no3]['spec'] 								= $restData[0]->spec;
+							$ArrInsert3[$nomor.$no3]['qty'] 					= str_replace(',','',$valxmp['qty']);
+							$ArrInsert3[$nomor.$no3]['tipe'] 					= 'man power';
+							$ArrInsert3[$nomor.$no3]['rate'] 								= rate($valxmp['code_group'], 'day', 'man power', "all region");
+						}
+					}
+				}
+
+				$no4=0;
+				if(!empty($valx['he'])){
+					foreach($valx['he'] AS $valvt => $valxvt){
+						
+						$restData = $this->db->query("SELECT category, spec FROM heavy_equipment_new WHERE code_group='".$valxvt['code_group']."' LIMIT 1 ")->result();
+						if(!empty($restData)){
+							$no4++;
+							$num_vt_1 		= sprintf('%03s',$nomor);
+							$num_vt_2 		= sprintf('%03s',$no1);
+							$ArrInsert4[$nomor.$no4]['project_code'] 		= $project_code;
+							$ArrInsert4[$nomor.$no4]['project_code_det'] 	= $project_code.'-'.$num_vt_1;
+							$ArrInsert4[$nomor.$no4]['code_work_detail_d'] 	= $valx['code_work'].'-'.$num_vt_1.'-'.$num_vt_2;
+							$ArrInsert4[$nomor.$no4]['code_work_detail'] 	= $valx['code_work'].'-'.$num_vt_1;
+							$ArrInsert4[$nomor.$no4]['code_work'] 			= $valx['code_work'];
+							$ArrInsert4[$nomor.$no4]['code_group'] 			= $valxvt['code_group'];
+							$ArrInsert4[$nomor.$no4]['category'] 			= $restData[0]->category;
+							$ArrInsert4[$nomor.$no4]['spec'] 				= $restData[0]->spec;
+							$ArrInsert4[$nomor.$no4]['qty'] 				= str_replace(',','',$valxvt['qty']);
+							$ArrInsert4[$nomor.$no4]['tipe'] 				= 'heavy equipment';
+							$ArrInsert4[$nomor.$no4]['rate'] 				= rate($valxvt['code_group'], $region, 'vehicle tool', $region_code);
+						}
+					}
+				}
+
+			}
+
+			// print_r($ArrHeader);
+			// print_r($ArrHeaderDetail);
+			// print_r($ArrMeal);
+			// print_r($ArrOvertime);
+			// print_r($ArrHouse);
+			// print_r($ArrTrans);
+			// print_r($ArrEtc);
+			// print_r($ArrIntHead);
+			// print_r($ArrInsert);
+			// print_r($ArrInsert1);
+			// print_r($ArrInsert2);
+			// print_r($ArrInsert3);
+			// exit;
+
+
+			$this->db->trans_start();
+				$this->db->insert('project_header', $ArrHeader);
+				$this->db->insert_batch('project_detail_bq', $ArrHeaderDetail);
+				// if(!empty($ArrMeal)){
+				// 	$this->db->insert_batch('project_detail_akomodasi', $ArrMeal);
+				// }
+				// if(!empty($ArrOvertime)){
+				// 	$this->db->insert_batch('project_detail_akomodasi', $ArrOvertime);
+				// }
+				if(!empty($ArrHouse)){
+					$this->db->insert_batch('project_detail_akomodasi', $ArrHouse);
+				}
+				if(!empty($ArrTrans)){
+					$this->db->insert_batch('project_detail_akomodasi', $ArrTrans);
+				}
+				if(!empty($ArrEtc)){
+					$this->db->insert_batch('project_detail_akomodasi', $ArrEtc);
+				}
+
+
+				$this->db->insert_batch('project_detail_header', $ArrIntHead);
+				if(!empty($ArrInsert1)){
+					$this->db->insert_batch('project_detail_process', $ArrInsert1);
+				}
+
+				if(!empty($ArrInsert2)){
+					$this->db->insert_batch('project_detail_process', $ArrInsert2);
+				}
+
+				if(!empty($ArrInsert3)){
+					$this->db->insert_batch('project_detail_process', $ArrInsert3);
+				}
+
+				if(!empty($ArrInsert4)){
+					$this->db->insert_batch('project_detail_process', $ArrInsert4);
+				}
+
+				//group ot dan MEAL
+				$sql_MEAL = get_sql_meal_ot($project_code);
+				$rest_MEAL = $this->db->query($sql_MEAL)->result_array();
+				$tot_ot = $total_time - 7;
+				$total_ot = ($tot_ot < 0)?0:$tot_ot;
+				if(!empty($rest_MEAL)){
+					$ArrMEAL = array();
+					foreach($rest_MEAL AS $val => $valx){
+						$restDataAk = $this->db->query("SELECT category, spec FROM man_power_new WHERE code_group='".$valx['code_group']."' LIMIT 1 ")->result();
+						$ArrMEAL[$val]['project_code']= $project_code;
+						$ArrMEAL[$val]['category_ak'] = 'meal';
+						$ArrMEAL[$val]['code_group'] 	= $valx['code_group'];
+						$ArrMEAL[$val]['category'] 		= (!empty($restDataAk))?get_name('man_power_category','category','id',$restDataAk[0]->category):'not found';
+						$ArrMEAL[$val]['spec'] 			= (!empty($restDataAk))?$restDataAk[0]->spec:'not found';
+						$ArrMEAL[$val]['area'] 			= $region_code;
+						$ArrMEAL[$val]['rate'] 			= rate($valx['code_group'], 'day', 'man power', "all region");
+						$ArrMEAL[$val]['jml_orang'] 	= $valx['qty'];
+						$ArrMEAL[$val]['jml_hari'] 		= $valx['std_time'];
+						$ArrMEAL[$val]['note'] 			= '';
+					}
+
+					$ArrOVERTIME = array();
+					foreach($rest_MEAL AS $val => $valx){
+						$restDataAk = $this->db->query("SELECT category, spec FROM man_power_new WHERE code_group='".$valx['code_group']."' LIMIT 1 ")->result();
+						$ArrOVERTIME[$val]['project_code']= $project_code;
+						$ArrOVERTIME[$val]['category_ak'] = 'overtime';
+						$ArrOVERTIME[$val]['code_group'] 	= $valx['code_group'];
+						$ArrOVERTIME[$val]['category'] 		= (!empty($restDataAk))?get_name('man_power_category','category','id',$restDataAk[0]->category):'not found';
+						$ArrOVERTIME[$val]['spec'] 			= (!empty($restDataAk))?$restDataAk[0]->spec:'not found';
+						$ArrOVERTIME[$val]['rate'] 			= rate($valx['code_group'], 'day', 'man power', "all region");
+						$ArrOVERTIME[$val]['jml_jam'] 		= $total_ot;
+						$ArrOVERTIME[$val]['jml_orang'] 	= $valx['qty'];
+						$ArrOVERTIME[$val]['jml_hari'] 		= $valx['std_time'];
+						$ArrOVERTIME[$val]['note'] 			= '';
+					}
+
+				}
+				if(!empty($rest_MEAL)){
+					$this->db->insert_batch('project_detail_akomodasi', $ArrMEAL);
+					$this->db->insert_batch('project_detail_akomodasi', $ArrOVERTIME);
+				}
+
+			$this->db->trans_complete();
+
+
+			if($this->db->trans_status() === FALSE){
+				$this->db->trans_rollback();
+				$Arr_Kembali	= array(
+					'pesan'		=> 'Insert BQ Instalation data failed. Please try again later ...',
+					'status'	=> 2
+				);
+			}
+			else{
+				$this->db->trans_commit();
+				$Arr_Kembali	= array(
+					'pesan'		=> 'Insert BQ Instalation data success. Thanks ...',
+					'status'	=> 1
+				);
+				history('Insert BQ Instalation code '.$project_code);
+			}
+
+			echo json_encode($Arr_Kembali);
+		}
+		else{
+			$controller			= ucfirst(strtolower($this->uri->segment(1)));
+			$Arr_Akses			= getAcccesmenu($controller);
+			if($Arr_Akses['create'] !='1'){
+				$this->session->set_flashdata("alert_data", "<div class=\"alert alert-warning\" id=\"flash-message\">You Don't Have Right To Access This Page, Please Contact Your Administrator....</div>");
+				redirect(site_url('users'));
+			}
+
+			$qRegion	= "SELECT * FROM region ORDER BY urut ASC";
+			$restRegion	= $this->db->query($qRegion)->result_array();
+
+			$qIPP	= "SELECT no_ipp, nm_customer, project FROM ipp_header WHERE deleted='N' AND status='WAITING ESTIMATION PROJECT' ORDER BY no_ipp ASC";
+			$restIPP	= $this->db->query($qIPP)->result_array();
+
+			$data = array(
+				'title'			=> 'Add Instalasi Project',
+				'action'		=> 'add',
+				'region'		=> $restRegion,
+				'no_ipp' => $restIPP
+			);
+			$this->load->view('Instalation/add',$data);
+		}
+	}
+
+	public function edit(){
+		if($this->input->post()){
+			$Arr_Kembali	= array();
+			$data					= $this->input->post();
+			$data_session	= $this->session->userdata;
+			$dateTime			= date('Y-m-d H:i:s');
+
+			// print_r($data);
+			// exit;
+
+			$project_code	= $data['project_code'];
+			$project_name	= strtolower($data['project_name']);
+			$region_code	= strtolower($data['region_code']);
+			$location			= strtolower($data['location']);
+			$total_time		= $data['total_time'];
+			$tipe		= (!empty($data['tipe']))?json_encode($data['tipe']):'';
+			$bq_qty				= $data['bq_qty'];
+			$bq_mp				= $data['bq_mp'];
+			$bq_ct				= $data['bq_ct'];
+			$bq_total			= $data['bq_total'];
+			$ListDetail		= $data['ListDetail'];
+			$ListDetailBq	= $data['ListDetailBq'];
+			if(!empty($data['ListMeal'])){
+				$ListMeal					= $data['ListMeal'];
+			}
+			if(!empty($data['ListOvertime'])){
+				$ListOvertime			= $data['ListOvertime'];
+			}
+			if(!empty($data['ListDetailHouse'])){
+				$ListDetailHouse	= $data['ListDetailHouse'];
+			}
+			if(!empty($data['ListDetailTrans'])){
+				$ListDetailTrans	= $data['ListDetailTrans'];
+			}
+			if(!empty($data['ListDetailEtc'])){
+				$ListDetailEtc		= $data['ListDetailEtc'];
+			}
+
+			$Ym						= date('ym');
+			$region = str_replace('_',' ',$region_code);
+
+			// print_r($ListDetail);
+			// exit;
+
+			//project_header
+			$ArrHeader = array(
+				'project_code' 	=> $project_code,
+				'project_name' 	=> $project_name,
+				'region_code' 	=> $region_code,
+				'region' 				=> str_replace('_',' ',$region_code),
+				'location' 			=> $location,
+				'total_time' 		=> $total_time,
+				'tipe' 		=> $tipe,
+				'bq_qty' 			=> $bq_qty,
+				'bq_mp' 			=> $bq_mp,
+				'bq_ct' 			=> $bq_ct,
+				'bq_total' 		=> $bq_total,
+				'updated_by' 		=> $data_session['ORI_User']['username'],
+				'updated_date' 	=> $dateTime
+			);
+			//project_detail_bq
+			$ArrHeaderDetail = array();
+			foreach($ListDetailBq AS $val => $valx){
+				$ArrHeaderDetail[$val]['project_code'] 	= $project_code;
+				$ArrHeaderDetail[$val]['satuan_code'] 	= $valx['satuan_code'];
+				$ArrHeaderDetail[$val]['qty'] 					= $valx['qty'];
+				$ArrHeaderDetail[$val]['mp'] 					= $valx['mp'];
+				$ArrHeaderDetail[$val]['ct'] 					= $valx['ct'];
+				$ArrHeaderDetail[$val]['diameter'] 			= $valx['diameter'];
+				$ArrHeaderDetail[$val]['cycletime'] 			= $valx['cycletime'];
+			}
+
+			//project_detail_akomodasi
+			if(!empty($data['ListMeal'])){
+				$ArrMeal = array();
+				foreach($ListMeal AS $val => $valx){
+					$restDataAk = $this->db->query("SELECT category, spec FROM man_power_new WHERE code_group='".$valx['code_group']."' LIMIT 1 ")->result();
+					$ArrMeal[$val]['project_code']= $project_code;
+					$ArrMeal[$val]['category_ak'] = 'meal';
+					$ArrMeal[$val]['code_group'] 	= $valx['code_group'];
+					$ArrMeal[$val]['category'] 		= (!empty($restDataAk))?$restDataAk[0]->category:'not found';
+					$ArrMeal[$val]['spec'] 				= (!empty($restDataAk))?$restDataAk[0]->spec:'not found';
+					$ArrMeal[$val]['rate'] 				= rate($valx['code_group'], 'day', 'man power', "all region");
+					$ArrMeal[$val]['area'] 				= $valx['area'];
+					$ArrMeal[$val]['jml_orang'] 	= $valx['jml_orang'];
+					$ArrMeal[$val]['jml_hari'] 		= $valx['jml_hari'];
+					$ArrMeal[$val]['note'] 				= strtolower($valx['note']);
+				}
+			}
+
+			if(!empty($data['ListOvertime'])){
+				$ArrOvertime = array();
+				foreach($ListOvertime AS $val => $valx){
+					$restDataAk = $this->db->query("SELECT category, spec FROM man_power_new WHERE code_group='".$valx['code_group']."' LIMIT 1 ")->result();
+					$ArrOvertime[$val]['project_code']= $project_code;
+					$ArrOvertime[$val]['category_ak'] = 'overtime';
+					$ArrOvertime[$val]['code_group'] 	= $valx['code_group'];
+					$ArrOvertime[$val]['category'] 		= (!empty($restDataAk))?$restDataAk[0]->category:'not found';
+					$ArrOvertime[$val]['spec'] 				= (!empty($restDataAk))?$restDataAk[0]->spec:'not found';
+					$ArrOvertime[$val]['rate'] 				= rate($valx['code_group'], 'day', 'man power', "all region");
+					$ArrOvertime[$val]['jml_jam'] 		= $valx['jml_jam'];
+					$ArrOvertime[$val]['jml_orang'] 	= $valx['jml_orang'];
+					$ArrOvertime[$val]['jml_hari'] 		= $valx['jml_hari'];
+					$ArrOvertime[$val]['note'] 				= strtolower($valx['note']);
+				}
+			}
+
+			if(!empty($data['ListDetailHouse'])){
+				$ArrHouse = array();
+				foreach($ListDetailHouse AS $val => $valx){
+					$restDataAk = $this->db->query("SELECT category, spec FROM akomodasi_new WHERE code_group='".$valx['code_group']."' LIMIT 1 ")->result();
+					$ArrHouse[$val]['project_code'] = $project_code;
+					$ArrHouse[$val]['category_ak'] 	= 'house';
+					$ArrHouse[$val]['code_group'] 	= $valx['code_group'];
+					$ArrHouse[$val]['category'] 		= (!empty($restDataAk))?$restDataAk[0]->category:'not found';
+					$ArrHouse[$val]['spec'] 				= (!empty($restDataAk))?$restDataAk[0]->spec:'not found';
+					$ArrHouse[$val]['rate'] 			= rate($valx['code_group'], $valx['satuan'], 'akomodasi', $region_code);
+					$ArrHouse[$val]['qty'] 					= $valx['qty'];
+					$ArrHouse[$val]['jml_orang'] 				= $valx['value'];
+					$ArrHouse[$val]['area'] 			= $valx['satuan'];
+					$ArrHouse[$val]['note'] 				= strtolower($valx['note']);
+				}
+			}
+
+			if(!empty($data['ListDetailTrans'])){
+				$ArrTrans = array();
+				foreach($ListDetailTrans AS $val => $valx){
+					$ArrTrans[$val]['project_code'] = $project_code;
+					$ArrTrans[$val]['category_ak'] 	= 'trans';
+					$ArrTrans[$val]['category'] 		= $valx['item_cost'];
+					$ArrTrans[$val]['spec'] 		= $valx['kendaraan'];
+					$ArrTrans[$val]['asal'] 				= strtolower($valx['asal']);
+					$ArrTrans[$val]['tujuan'] 			= strtolower($valx['tujuan']);
+					$ArrTrans[$val]['pulang_pergi'] = strtolower($valx['pulang_pergi']);
+					$ArrTrans[$val]['jml_orang'] 				= $valx['value'];
+					$ArrTrans[$val]['note'] 				= strtolower($valx['note']);
+				}
+			}
+
+			if(!empty($data['ListDetailEtc'])){
+				$ArrEtc = array();
+				foreach($ListDetailEtc AS $val => $valx){
+					$restDataAk = $this->db->query("SELECT category, spec FROM akomodasi_new WHERE code_group='".$valx['code_group']."' LIMIT 1 ")->result();
+					$ArrEtc[$val]['project_code'] = $project_code;
+					$ArrEtc[$val]['category_ak'] 	= 'etc';
+					$ArrEtc[$val]['code_group'] 	= $valx['code_group'];
+					$ArrEtc[$val]['category'] 		= (!empty($restDataAk))?$restDataAk[0]->category:'not found';
+					$ArrEtc[$val]['spec'] 				= (!empty($restDataAk))?$restDataAk[0]->spec:'not found';
+					$ArrEtc[$val]['rate'] 				= rate($valx['code_group'], 'day', 'akomodasi', $region_code);
+					$ArrEtc[$val]['qty'] 					= $valx['qty'];
+					$ArrEtc[$val]['note'] 				= strtolower($valx['note']);
+				}
+			}
+			// print_r($ArrHeader);
+			// print_r($ArrHeaderDetail);
+			// print_r($ArrHeaderAko);
+			// exit;
+			//detail
+			$ArrIntHead = array();
+			$ArrInsert 	= array();
+			$ArrInsert1 = array();
+			$ArrInsert2 = array();
+			$ArrInsert3 = array();
+			$ArrInsert4 = array();
+			$nomor = 0;
+			$no_day=0;
+			$no_timeline = 0;
+			foreach($ListDetail AS $val => $valx){
+				$nomor++;
+				$numPlus = sprintf('%03s',$nomor);
+				$project_code_det = $project_code.'-'.$numPlus;
+				$code_work_detailx = $valx['code_work'].'-'.$numPlus;
+				$NmWork = $this->db->query("SELECT category FROM work_header WHERE code_work='".$valx['code_work']."' AND status='N' ")->result();
+				$nm_work = (!empty($NmWork))?$NmWork[0]->category:'';
+				$timeline = array();
+				for ($i=0; $i < $valx['std_time']; $i++) { 
+					$no_timeline++;
+					$timeline[] = $no_timeline;
+				}
+				$no_timeline = $no_timeline;
+
+				$ArrIntHead[$val]['project_code'] 			= $project_code;
+				$ArrIntHead[$val]['project_code_det'] 	= $project_code_det;
+				$ArrIntHead[$val]['code_work'] 					= $valx['code_work'];
+				$ArrIntHead[$val]['std_time'] 					= str_replace(',','',$valx['std_time']);
+				$ArrIntHead[$val]['category'] 					= $nm_work;
+				$ArrIntHead[$val]['timeline'] 			= json_encode($timeline);
+
+				$no1=0;
+				if(!empty($valx['vt'])){
+					foreach($valx['vt'] AS $valvt => $valxvt){
+						
+						$restData = $this->db->query("SELECT category, spec FROM vehicle_tool_new WHERE code_group='".$valxvt['code_group']."' LIMIT 1 ")->result();
+						if(!empty($restData)){
+							$no1++;
+							$num_vt_1 					= sprintf('%03s',$nomor);
+							$num_vt_2 					= sprintf('%03s',$no1);
+							$ArrInsert1[$nomor.$no1]['project_code'] 				= $project_code;
+							$ArrInsert1[$nomor.$no1]['project_code_det'] 		= $project_code.'-'.$num_vt_1;
+							$ArrInsert1[$nomor.$no1]['code_work_detail_d'] 	= $valx['code_work'].'-'.$num_vt_1.'-'.$num_vt_2;
+							$ArrInsert1[$nomor.$no1]['code_work_detail'] 		= $valx['code_work'].'-'.$num_vt_1;
+							$ArrInsert1[$nomor.$no1]['code_work'] 					= $valx['code_work'];
+							$ArrInsert1[$nomor.$no1]['code_group'] 					= $valxvt['code_group'];
+							$ArrInsert1[$nomor.$no1]['category'] 						= $restData[0]->category;
+							$ArrInsert1[$nomor.$no1]['spec'] 								= $restData[0]->spec;
+							$ArrInsert1[$nomor.$no1]['qty'] 								= str_replace(',','',$valxvt['qty']);
+							$ArrInsert1[$nomor.$no1]['tipe'] 								= 'tools';
+							$ArrInsert1[$nomor.$no1]['rate'] 								= rate($valxvt['code_group'], $region, 'vehicle tool', $region_code);
+						}
+					}
+				}
+
+				$no2=0;
+				if(!empty($valx['cn'])){
+					foreach($valx['cn'] AS $valcn => $valxcn){
+						$restData = $this->db->query("SELECT category, spec FROM con_nonmat_new WHERE code_group='".$valxcn['code_group']."' LIMIT 1 ")->result();
+						if(!empty($restData)){
+							$no2++;
+							$num_cn_1 					= sprintf('%03s',$nomor);
+							$num_cn_2 					= sprintf('%03s',$no2);
+							$ArrInsert2[$nomor.$no2]['project_code'] 				= $project_code;
+							$ArrInsert2[$nomor.$no2]['project_code_det'] 		= $project_code.'-'.$num_cn_1;
+							$ArrInsert2[$nomor.$no2]['code_work_detail_d'] 	= $valx['code_work'].'-'.$num_cn_1.'-'.$num_cn_2;
+							$ArrInsert2[$nomor.$no2]['code_work_detail'] 		= $valx['code_work'].'-'.$num_cn_1;
+							$ArrInsert2[$nomor.$no2]['code_work'] 					= $valx['code_work'];
+							$ArrInsert2[$nomor.$no2]['code_group'] 					= $valxcn['code_group'];
+							$ArrInsert2[$nomor.$no2]['category'] 					= $restData[0]->category;
+							$ArrInsert2[$nomor.$no2]['spec'] 						= $restData[0]->spec;
+							$ArrInsert2[$nomor.$no2]['qty'] 						= str_replace(',','',$valxcn['qty']);
+							$ArrInsert2[$nomor.$no2]['unit'] 						= $valxcn['unit'];
+							$ArrInsert2[$nomor.$no2]['tipe'] 						= 'consumable';
+							$ArrInsert2[$nomor.$no2]['rate'] 						= rate($valxcn['code_group'], $valxcn['unit'], 'consumable', "all region");
+						}
+					}
+				}
+
+				$no3=0;
+				if(!empty($valx['mp'])){
+					foreach($valx['mp'] AS $valmp => $valxmp){
+						
+						$restData = $this->db->query("SELECT category, spec FROM man_power_new WHERE code_group='".$valxmp['code_group']."' LIMIT 1 ")->result();
+						if(!empty($restData)){
+							$no3++;
+							$num_mp_1 					= sprintf('%03s',$nomor);
+							$num_mp_2 					= sprintf('%03s',$no3);
+							
+							$ArrInsert3[$nomor.$no3]['project_code'] 				= $project_code;
+							$ArrInsert3[$nomor.$no3]['project_code_det'] 		= $project_code.'-'.$num_mp_1;
+							$ArrInsert3[$nomor.$no3]['code_work_detail_d'] 	= $valx['code_work'].'-'.$num_mp_1.'-'.$num_mp_2;
+							$ArrInsert3[$nomor.$no3]['code_work_detail'] 		= $valx['code_work'].'-'.$num_mp_1;
+							$ArrInsert3[$nomor.$no3]['code_work'] 					= $valx['code_work'];
+							$ArrInsert3[$nomor.$no3]['code_group'] 					= $valxmp['code_group'];
+							$ArrInsert3[$nomor.$no3]['category'] 						= get_name('man_power_category','category','id',$restData[0]->category);
+							$ArrInsert3[$nomor.$no3]['spec'] 							= $restData[0]->spec;
+							$ArrInsert3[$nomor.$no3]['qty'] 					= str_replace(',','',$valxmp['qty']);
+							$ArrInsert3[$nomor.$no3]['tipe'] 					= 'man power';
+							$ArrInsert3[$nomor.$no3]['rate'] 								= rate($valxmp['code_group'], 'day', 'man power', "all region");
+						}
+					}
+				}
+
+				$no4=0;
+				if(!empty($valx['he'])){
+					foreach($valx['he'] AS $valvt => $valxvt){
+						
+						$restData = $this->db->query("SELECT category, spec FROM heavy_equipment_new WHERE code_group='".$valxvt['code_group']."' LIMIT 1 ")->result();
+						if(!empty($restData)){
+							$no4++;
+							$num_vt_1 		= sprintf('%03s',$nomor);
+							$num_vt_2 		= sprintf('%03s',$no1);
+							$ArrInsert4[$nomor.$no4]['project_code'] 		= $project_code;
+							$ArrInsert4[$nomor.$no4]['project_code_det'] 	= $project_code.'-'.$num_vt_1;
+							$ArrInsert4[$nomor.$no4]['code_work_detail_d'] 	= $valx['code_work'].'-'.$num_vt_1.'-'.$num_vt_2;
+							$ArrInsert4[$nomor.$no4]['code_work_detail'] 	= $valx['code_work'].'-'.$num_vt_1;
+							$ArrInsert4[$nomor.$no4]['code_work'] 			= $valx['code_work'];
+							$ArrInsert4[$nomor.$no4]['code_group'] 			= $valxvt['code_group'];
+							$ArrInsert4[$nomor.$no4]['category'] 			= $restData[0]->category;
+							$ArrInsert4[$nomor.$no4]['spec'] 				= $restData[0]->spec;
+							$ArrInsert4[$nomor.$no4]['qty'] 				= str_replace(',','',$valxvt['qty']);
+							$ArrInsert4[$nomor.$no4]['tipe'] 				= 'heavy equipment';
+							$ArrInsert4[$nomor.$no4]['rate'] 				= rate($valxvt['code_group'], $region, 'vehicle tool', $region_code);
+						}
+					}
+				}
+
+			}
+
+			// print_r($ArrHeader);
+			// print_r($ArrHeaderDetail);
+			// print_r($ArrMeal);
+			// print_r($ArrOvertime);
+			// print_r($ArrHouse);
+			// print_r($ArrTrans);
+			// print_r($ArrEtc);
+			// print_r($ArrIntHead);
+			// print_r($ArrInsert);
+			// print_r($ArrInsert1);
+			// print_r($ArrInsert2);
+			// print_r($ArrInsert3);
+			// exit;
+
+
+			$this->db->trans_start();
+
+				$this->db->delete('project_detail_bq', array('project_code' => $project_code));
+				$this->db->delete('project_detail_akomodasi', array('project_code' => $project_code));
+				$this->db->delete('project_detail_header', array('project_code' => $project_code));
+				$this->db->delete('project_detail_process', array('project_code' => $project_code));
+
+
+				$this->db->where('project_code', $project_code);
+				$this->db->update('project_header', $ArrHeader);
+
+				$this->db->insert_batch('project_detail_bq', $ArrHeaderDetail);
+
+				if(!empty($ArrHouse)){
+					$this->db->insert_batch('project_detail_akomodasi', $ArrHouse);
+				}
+				if(!empty($ArrTrans)){
+					$this->db->insert_batch('project_detail_akomodasi', $ArrTrans);
+				}
+				if(!empty($ArrEtc)){
+					$this->db->insert_batch('project_detail_akomodasi', $ArrEtc);
+				}
+
+				$this->db->insert_batch('project_detail_header', $ArrIntHead);
+				if(!empty($ArrInsert1)){
+					$this->db->insert_batch('project_detail_process', $ArrInsert1);
+				}
+
+				if(!empty($ArrInsert2)){
+					$this->db->insert_batch('project_detail_process', $ArrInsert2);
+				}
+
+				if(!empty($ArrInsert3)){
+					$this->db->insert_batch('project_detail_process', $ArrInsert3);
+				}
+
+				if(!empty($ArrInsert4)){
+					$this->db->insert_batch('project_detail_process', $ArrInsert4);
+				}
+
+				//group ot dan MEAL
+				$sql_MEAL = get_sql_meal_ot($project_code);
+				$rest_MEAL = $this->db->query($sql_MEAL)->result_array();
+				$tot_ot = $total_time - 7;
+				$total_ot = ($tot_ot < 0)?0:$tot_ot;
+				if(!empty($rest_MEAL)){
+					$ArrMEAL = array();
+					foreach($rest_MEAL AS $val => $valx){
+						$restDataAk = $this->db->query("SELECT category, spec FROM man_power_new WHERE code_group='".$valx['code_group']."' LIMIT 1 ")->result();
+						$ArrMEAL[$val]['project_code']= $project_code;
+						$ArrMEAL[$val]['category_ak'] = 'meal';
+						$ArrMEAL[$val]['code_group'] 	= $valx['code_group'];
+						$ArrMEAL[$val]['category'] 		= (!empty($restDataAk))?get_name('man_power_category','category','id',$restDataAk[0]->category):'not found';
+						$ArrMEAL[$val]['spec'] 				= (!empty($restDataAk))?$restDataAk[0]->spec:'not found';
+						$ArrMEAL[$val]['area'] 				= $region_code;
+						$ArrMEAL[$val]['rate'] 				= rate($valx['code_group'], 'day', 'man power', "all region");
+						$ArrMEAL[$val]['jml_orang'] 	= $valx['qty'];
+						$ArrMEAL[$val]['jml_hari'] 		= $valx['std_time'];
+						$ArrMEAL[$val]['note'] 				= '';
+					}
+
+					$ArrOVERTIME = array();
+					foreach($rest_MEAL AS $val => $valx){
+						$restDataAk = $this->db->query("SELECT category, spec FROM man_power_new WHERE code_group='".$valx['code_group']."' LIMIT 1 ")->result();
+						$ArrOVERTIME[$val]['project_code']= $project_code;
+						$ArrOVERTIME[$val]['category_ak'] = 'overtime';
+						$ArrOVERTIME[$val]['code_group'] 	= $valx['code_group'];
+						$ArrOVERTIME[$val]['category'] 		= (!empty($restDataAk))?get_name('man_power_category','category','id',$restDataAk[0]->category):'not found';
+						$ArrOVERTIME[$val]['spec'] 				= (!empty($restDataAk))?$restDataAk[0]->spec:'not found';
+						$ArrOVERTIME[$val]['rate'] 				= rate($valx['code_group'], 'day', 'man power', "all region");
+						$ArrOVERTIME[$val]['jml_jam'] 		= $total_ot;
+						$ArrOVERTIME[$val]['jml_orang'] 	= $valx['qty'];
+						$ArrOVERTIME[$val]['jml_hari'] 		= $valx['std_time'];
+						$ArrOVERTIME[$val]['note'] 				= '';
+					}
+
+				}
+				if(!empty($rest_MEAL)){
+					$this->db->insert_batch('project_detail_akomodasi', $ArrMEAL);
+					$this->db->insert_batch('project_detail_akomodasi', $ArrOVERTIME);
+				}
+			$this->db->trans_complete();
+
+
+			if($this->db->trans_status() === FALSE){
+				$this->db->trans_rollback();
+				$Arr_Kembali	= array(
+					'pesan'		=> 'Edit BQ Instalation data failed. Please try again later ...',
+					'status'	=> 2
+				);
+			}
+			else{
+				$this->db->trans_commit();
+				$Arr_Kembali	= array(
+					'pesan'		=> 'Edit BQ Instalation data success. Thanks ...',
+					'status'	=> 1
+				);
+				history('Edit BQ Instalation code '.$project_code);
+			}
+
+			echo json_encode($Arr_Kembali);
+		}
+		else{
+			$controller			= ucfirst(strtolower($this->uri->segment(1)));
+			$Arr_Akses			= getAcccesmenu($controller);
+			if($Arr_Akses['create'] !='1'){
+				$this->session->set_flashdata("alert_data", "<div class=\"alert alert-warning\" id=\"flash-message\">You Don't Have Right To Access This Page, Please Contact Your Administrator....</div>");
+				redirect(site_url('users'));
+			}
+
+			$project_code = $this->uri->segment(3);
+
+			$restHeader = $this->db->get_where('project_header', array('project_code'=>$project_code))->result();
+			$restDetail = $this->db->get_where('project_detail_header', array('project_code'=>$project_code,'deleted'=>'N'))->result_array();
+			$restDetBQ 	= $this->db->get_where('project_detail_bq', array('project_code'=>$project_code,'deleted'=>'N'))->result_array();
+
+			//list region
+			$qRegion		= "SELECT * FROM region ORDER BY urut ASC";
+			$restRegion	= $this->db->query($qRegion)->result_array();
+
+			//list satuan
+			$qSatuan		= "SELECT * FROM satuan_bq_project";
+			$restSatuan	= $this->db->query($qSatuan)->result_array();
+
+			$qWork		= "SELECT * FROM work_header WHERE deleted_date IS NULL ORDER BY category ASC";
+			$restWork	= $this->db->query($qWork)->result_array();
+
+			$qHouse	 	= "SELECT * FROM akomodasi_new WHERE category='tempat tinggal dan kendaraan' ORDER BY category ASC, spec ASC";
+			$restHouse	= $this->db->query($qHouse)->result_array();
+
+			$qSat	 	= "SELECT * FROM list WHERE category='tempat tinggal' AND category_='satuan' AND flag='N' ORDER BY urut ASC";
+			$restSat = $this->db->query($qSat)->result_array();
+
+			$qEtc	 	= "SELECT * FROM akomodasi_new WHERE category='biaya lain lain' ORDER BY category ASC, spec ASC";
+			$restEtc = $this->db->query($qEtc)->result_array();
+
+			$qTransport	 	= "SELECT * FROM list WHERE category='transportasi' AND category_='item cost' AND flag='N' ORDER BY urut ASC";
+			$restTransx	= $this->db->query($qTransport)->result_array();
+
+			$qDetailMeal 	= "SELECT * FROM project_detail_akomodasi WHERE project_code='".$project_code."' AND category_ak='meal' AND deleted='N'";
+			$rMeal 				= $this->db->query($qDetailMeal)->result_array();
+
+			$qDetailOT 	= "SELECT * FROM project_detail_akomodasi WHERE project_code='".$project_code."' AND category_ak='overtime' AND deleted='N'";
+			$rOT 			= $this->db->query($qDetailOT)->result_array();
+
+			$qDetailHouse = "SELECT * FROM project_detail_akomodasi WHERE project_code='".$project_code."' AND category_ak='house' AND deleted='N'";
+			$rHouse 			= $this->db->query($qDetailHouse)->result_array();
+
+			$qDetailTrans = "SELECT * FROM project_detail_akomodasi WHERE project_code='".$project_code."' AND category_ak='trans' AND deleted='N'";
+			$rTrans 			= $this->db->query($qDetailTrans)->result_array();
+
+			$qDetailEtc 	= "SELECT * FROM project_detail_akomodasi WHERE project_code='".$project_code."' AND category_ak='etc' AND deleted='N'";
+			$rEtc 				= $this->db->query($qDetailEtc)->result_array();
+
+			$unit				= $this->db->query("SELECT * FROM list WHERE origin='con_nonmat' AND category='satuan' ORDER BY urut ASC")->result_array();
+
+			$data = array(
+				'title'			=> 'Edit Instalasi Project',
+				'action'		=> 'edit',
+				'region'		=> $restRegion,
+				'satuan'		=> $restSatuan,
+				'work'			=> $restWork,
+				'header'		=> $restHeader,
+				'detail'		=> $restDetail,
+				'detail_bq'	=> $restDetBQ,
+				'meal' => $rMeal,
+				'overtime' => $rOT,
+				'house_' => $rHouse,
+				'trans' => $rTrans,
+				'etc_' => $rEtc,
+				'house' => $restHouse,
+				'sat' => $restSat,
+				'etc' => $restEtc,
+				'transx' => $restTransx,
+				'unit' => $unit
+
+			);
+			$this->load->view('Instalation/edit',$data);
+		}
+	}
+
+	public function list_bq_project(){
+	   	$query	 	= "SELECT * FROM satuan_bq_project";
+	  	$Q_result	= $this->db->query($query)->result();
+	  	$option 	= "";
+	  	foreach($Q_result as $row)	{
+		   $option .= "<option value='".$row->satuan_code."'>".$row->satuan_view."</option>";
+	   	}
+		echo json_encode(array(
+			'option' => $option
+		));
+   }
+
+	 public function list_work($tipe=null){
+ 	   	$Q_result	= $this->db->order_by('category','ASC')->get_where('work_header', array('status'=>'N'))->result();
+ 	  	$option 	= "<option value='0'>Select an Option</option>";
+ 	  	foreach($Q_result as $row)	{
+ 		   $option .= "<option value='".$row->code_work."'>".ucwords(strtolower($row->category))."</option>";
+ 	   	}
+ 		echo json_encode(array(
+ 			'option' => $option
+ 		));
+  }
+
+	//tempat tinggal
+	public function list_tempat_tinggal(){
+			$query	 	= "SELECT * FROM akomodasi_new WHERE category='tempat tinggal dan kendaraan' ORDER BY category ASC, spec ASC";
+			$Q_result	= $this->db->query($query)->result();
+			$option 	= "<option value='0'>Select an Option</option>";
+			// $option 	= "";
+			foreach($Q_result as $row)	{
+			$option .= "<option value='".$row->code_group."'>".strtoupper($row->spec)."</option>";
+			}
+		 echo json_encode(array(
+			 'option' => $option
+		 ));
+ 	}
+
+	 //satuan
+	public function list_satuan(){
+		$query	 	= "SELECT * FROM list WHERE category='tempat tinggal' AND category_='satuan' AND flag='N' ORDER BY urut ASC";
+		$Q_result	= $this->db->query($query)->result();
+		// $option 	= "<option value='0'>Select an Option</option>";
+		$option 	= "";
+		foreach($Q_result as $row)	{
+		 $option .= "<option value='".$row->category_list."'>".strtoupper(strtolower($row->view_))."</option>";
+		}
+		echo json_encode(array(
+			'option' => $option
+		));
+ 	}
+
+	 //tiket
+	public function list_tiket(){
+		$query	 	= "SELECT * FROM list WHERE category='transportasi' AND category_='item cost' AND flag='N' ORDER BY urut ASC";
+		$Q_result	= $this->db->query($query)->result();
+		$option 	= "<option value='0'>Select an Option</option>";
+		// $option 	= "";
+		foreach($Q_result as $row)	{
+		 $option .= "<option value='".$row->category_list."'>".strtoupper(strtolower($row->view_))."</option>";
+		}
+		echo json_encode(array(
+			'option' => $option
+		));
+	}
+
+	//sewa kendaraan
+	public function list_sewa_kendaraan(){
+		$cty = $this->uri->segment(3);
+		$query	 	= "SELECT * FROM list WHERE category='transportasi' AND category_='".$cty."' AND flag='N' ORDER BY urut ASC";
+		$Q_result	= $this->db->query($query)->result();
+		$option 	= "<option value='0'>Select an Option</option>";
+		foreach($Q_result as $row)	{
+			$option .= "<option value='".$row->category_list."'>".strtoupper(strtolower($row->view_))."</option>";
+		}
+		echo json_encode(array(
+		'option' => $option
+		));
+	}
+
+	//etc
+	public function list_etc(){
+		$query	 	= "SELECT * FROM akomodasi_new WHERE category='biaya lain lain' ORDER BY category ASC, spec ASC";
+		$Q_result	= $this->db->query($query)->result();
+		$option 	= "<option value='0'>Select an Option</option>";
+		foreach($Q_result as $row)	{
+			$option .= "<option value='".$row->code_group."'>".strtoupper($row->spec)."</option>";
+		}
+		echo json_encode(array(
+		'option' => $option
+		));
+	}
+
+	public function list_work_det(){
+			$code_work 	= $this->uri->segment(3);
+			$nomor 		= $this->uri->segment(4);
+
+			//list
+			$consumable	= $this->db->query("SELECT * FROM con_nonmat_new ORDER BY category ASC")->result_array();
+			$man_power	= $this->db->query("SELECT a.code_group, a.spec, b.category FROM man_power_new a LEFT JOIN man_power_category b ON a.category=b.id WHERE a.deleted='N' ORDER BY b.category ASC, a.spec ASC")->result_array();
+			$vehicle	= $this->db->query("SELECT * FROM vehicle_tool_new ORDER BY category ASC")->result_array();
+			$heavy		= $this->db->query("SELECT * FROM heavy_equipment_new ORDER BY category ASC")->result_array();
+			$location	= $this->db->query("SELECT * FROM region ORDER BY urut ASC")->result_array();
+			$unit		= $this->db->query("SELECT * FROM list WHERE origin='con_nonmat' AND category='satuan' ORDER BY urut ASC")->result_array();
+
+			$restDet1 = $this->db->get_where('work_detail_detail', array('code_work'=>$code_work,'tipe'=>'heavy equipment','deleted'=>'N'))->result_array();
+			$restDet2 = $this->db->get_where('work_detail_detail', array('code_work'=>$code_work,'tipe'=>'tools','deleted'=>'N'))->result_array();
+			$restDet3 = $this->db->get_where('work_detail_detail', array('code_work'=>$code_work,'tipe'=>'consumable','deleted'=>'N'))->result_array();
+			$restDet4 = $this->db->get_where('work_detail_detail', array('code_work'=>$code_work,'tipe'=>'man power','deleted'=>'N'))->result_array();
+
+		 	$query	 	= "SELECT * FROM work_detail WHERE code_work='".$code_work."' AND deleted='N'";
+			$get_work	= $this->db->select('total_time')->get_where('work_header', array('code_work'=>$code_work))->result();
+			$std_time 	= (!empty($get_work))?$get_work[0]->total_time:0;
+			$no = 0;
+			$Rowx = "";
+			$RowxMeal = "";
+			$RowxOvertime = "";
+			$SumTP = 0;
+			$Rowx .= "<tr id='tr_".$nomor."'>";
+				$Rowx .= "<td width='100%' colspan='2'>";
+					$Rowx .= "<table id='my-grid' class='table table-striped table-bordered table-hover table-condensed' width='100%'>";
+						$Rowx .= "<tr class='bg-purple'>";
+							$Rowx .= "<th class='text-center' width='50%'>Heavy Equipment</th>";
+							$Rowx .= "<th class='text-center' width='50%'>Tools Equipment</th>";
+						$Rowx .= "</tr>";
+						$Rowx .= "<tr class='tr_".$nomor."'>";
+							$Rowx .= "<td>";
+								$num1 = 0;
+								foreach($restDet1 AS $val_vt => $valx_vt){
+									$num1++;
+									$Rowx .= "<div style='margin-bottom: 6px;'>";
+										$Rowx .= "<div class='input-group'>";
+										$Rowx .= "<select name='ListDetail[".$nomor."][he][".$num1."][code_group]' class='chosen_select form-control he_".$nomor."_".$no."_".$num1."'>";
+										foreach($heavy AS $val_vtList => $valx_vtList){
+											$sel1 = ($valx_vtList['code_group'] == $valx_vt['code_group'])?'selected':'';
+											$Rowx .= "<option value='".$valx_vtList['code_group']."' $sel1>".strtoupper($valx_vtList['category']." - ".$valx_vtList['spec'])."</option>";
+										}
+										$Rowx .= "</select>";
+										$Rowx .= "<span class='input-group-addon cldelete aDel'><i class='fa fa-close'></i></span>";
+										$Rowx .= "<input type='text' name='ListDetail[".$nomor."][he][".$num1."][qty]' class='form-control widCtr autoNumeric0' placeholder='Qty'>";
+										$Rowx .= "</div>";
+									$Rowx .= "</div>";
+								}
+								//add komponent
+								$Rowx .= "<div id='he_add_".$nomor."_".$no."'></div>";
+								$Rowx .= "<div><button type='button' class='btn btn-success btn-sm aAdd' data-num1='$nomor' data-num2='$no' data-numlast='$num1' data-tanda='he_add_' data-tanda2='new'>Add Heavy Equipment</button></div>";
+							$Rowx .= "</td>";
+							$Rowx .= "<td>";
+								$num1 = 0;
+								foreach($restDet2 AS $val_vt => $valx_vt){
+									$num1++;
+									$Rowx .= "<div style='margin-bottom: 6px;'>";
+										$Rowx .= "<div class='input-group'>";
+										$Rowx .= "<select name='ListDetail[".$nomor."][vt][".$num1."][code_group]' class='chosen_select form-control vt_".$nomor."_".$no."_".$num1."'>";
+										foreach($vehicle AS $val_vtList => $valx_vtList){
+											$sel1 = ($valx_vtList['code_group'] == $valx_vt['code_group'])?'selected':'';
+											$Rowx .= "<option value='".$valx_vtList['code_group']."' $sel1>".strtoupper($valx_vtList['category']." - ".$valx_vtList['spec'])."</option>";
+										}
+										$Rowx .= "</select>";
+										$Rowx .= "<span class='input-group-addon cldelete aDel'><i class='fa fa-close'></i></span>";
+										$Rowx .= "<input type='text' name='ListDetail[".$nomor."][vt][".$num1."][qty]' class='form-control widCtr autoNumeric0' placeholder='Qty'>";
+										$Rowx .= "</div>";
+									$Rowx .= "</div>";
+								}
+								//add komponent
+								$Rowx .= "<div id='vt_add_".$nomor."_".$no."'></div>";
+								$Rowx .= "<div><button type='button' class='btn btn-success btn-sm aAdd' data-num1='$nomor' data-num2='$no' data-numlast='$num1' data-tanda='vt_add_' data-tanda2='new'>Add Tools Equipment</button></div>";
+							$Rowx .= "</td>";
+						$Rowx .= "</tr>";
+						$Rowx .= "<tr class='bg-purple'>";
+							$Rowx .= "<th class='text-center'>Consumable & APD</th>";
+							$Rowx .= "<th class='text-center'>Man Power</th>";
+						$Rowx .= "</tr>";
+						$Rowx .= "<tr class='tr_".$nomor."'>";
+							$Rowx .= "<td>";
+								//Consumable
+								$num2 = 0;
+								foreach($restDet3 AS $val_cn => $valx_cn){
+									$num2++;
+									$Rowx .= "<div style='margin-bottom: 6px;'>";
+									$Rowx .= "<div class='input-group'>";
+									$Rowx .= "<select name='ListDetail[".$nomor."][cn][".$num2."][code_group]' class='chosen_select form-control inline-blockd cn_".$nomor."_".$no."_".$num2."''>";
+									foreach($consumable AS $val_vtList => $valx_vtList){
+										$sel2 = ($valx_vtList['code_group'] == $valx_cn['code_group'])?'selected':'';
+										$Rowx .= "<option value='".$valx_vtList['code_group']."' $sel2>".strtoupper($valx_vtList['category']." - ".$valx_vtList['spec'])."</option>";
+									}
+									$Rowx .= "</select>";
+									$Rowx .= "<span class='input-group-addon cldelete aDel'><i class='fa fa-close'></i></span>";
+									$Rowx .= "<input type='text' name='ListDetail[".$nomor."][cn][".$num2."][qty]' class='form-control widCtr autoNumeric0' placeholder='Qty'>";
+									$Rowx .= "<span class='input-group-addon'></span>";
+									$Rowx .= "<select name='ListDetail[".$nomor."][cn][".$num2."][unit]' class='chosen_select form-control inline-block widCtrx'>";
+									foreach($unit AS $val_unit => $valx_unit){
+										$Rowx .= "<option value='".$valx_unit['category_list']."' >".strtoupper($valx_unit['view_'])."</option>";
+									}
+									$Rowx .= "</select>";
+									$Rowx .= "</div>";
+									$Rowx .= "</div>";
+								}
+								//add komponent
+								$Rowx .= "<div id='cn_add_".$nomor."_".$no."'></div>";
+								$Rowx .= "<div><button type='button' class='btn btn-success btn-sm aAdd' data-num1='$nomor' data-num2='$no' data-numlast='$num2' data-tanda='cn_add_' data-tanda2='new'>Add Consumable</button></div>";
+
+							$Rowx .= "</td>";
+							$Rowx .= "<td>";
+								//Man Power
+								$num3 = 0;
+								foreach($restDet4 AS $val_vt => $valx_vt){
+									$num3++;
+									$Rowx .= "<div style='margin-bottom: 6px;'>";
+									$Rowx .= "<div class='input-group'>";
+									$Rowx .= "<select name='ListDetail[".$nomor."][mp][".$num3."][code_group]' class='chosen_select form-control inline-block mp_".$nomor."_".$no."_".$num3."'>";
+									foreach($man_power AS $val_vtList => $valx_vtList){
+										$sel1 = ($valx_vtList['code_group'] == $valx_vt['code_group'])?'selected':'';
+										$Rowx .= "<option value='".$valx_vtList['code_group']."' $sel1>".strtoupper($valx_vtList['category']." - ".$valx_vtList['spec'])."</option>";
+									}
+									$Rowx .= "</select>";
+									$Rowx .= "<span class='input-group-addon cldelete aDel'><i class='fa fa-close'></i></span>";
+									$Rowx .= "<input type='text' name='ListDetail[".$nomor."][mp][".$num3."][qty]' data-no1='".$nomor."' data-no2='".$num3."' class='form-control widCtr chMPQty autoNumeric0' placeholder='Qty'>";
+									$Rowx .= "</div>";
+									$Rowx .= "</div>";
+
+									//Meal
+									$RowxMeal .= "<tr>";
+										$RowxMeal .= "<td width='30%'>";
+										$RowxMeal .= "<input type='hidden' name='ListMeal[".$nomor.$num3."][code_group]' id='code_groupm_".$nomor."_".$num3."' class='form-control input-md' value='".$valx_vt['code_group']."'>";
+										$RowxMeal .= "<input type='text' name='ListMeal[".$nomor.$num3."][spec]' id='specm_".$nomor."_".$num3."' class='form-control input-md' readonly value='".getMP($valx_vt['code_group'],'man_power_new')."'>";
+										$RowxMeal .= "</td>";
+										$RowxMeal .= "<td width='13%'>";
+										$RowxMeal .= "<select name='ListMeal[".$nomor.$num3."][area]' class='chosen_select form-control inline-block'>";
+										foreach($location AS $valL => $valxL){
+											$RowxMeal .= "<option value='".$valxL['region_code']."'>".strtoupper($valxL['region'])."</option>";
+										}
+										$RowxMeal .= "</select>";
+										$RowxMeal .= "</td>";
+										$RowxMeal .= "<td width='12%'>";
+										$RowxMeal .= "<input type='text' name='ListMeal[".$nomor.$num3."][jml_orang]' id='jml_orangm_".$nomor."_".$num3."' readonly class='form-control input-md' placeholder='Amount People'>";
+										$RowxMeal .= "</td>";
+										$RowxMeal .= "<td width='12%'>";
+										$RowxMeal .= "<input type='text' name='ListMeal[".$nomor.$num3."][jml_hari]' id='jml_harim_".$nomor."_".$num3."' readonly class='form-control input-md dayT_".$nomor."' placeholder='Amount (Day)' value='".$SumTP."'>";
+										$RowxMeal .= "</td>";
+										$RowxMeal .= "<td>";
+										$RowxMeal .= "<input type='text' name='ListMeal[".$nomor.$num3."][note]' id=notem_".$nomor."_".$num3."' class='form-control input-md' placeholder='Note'>";
+										$RowxMeal .= "</td>";
+										$RowxMeal .= "<td align='center' width='6%'>";
+										$RowxMeal .=		"<button type='button' disabled style='min-width:70px;' class='btn btn-danger btn-sm aDel' data-toggle='tooltip' data-placement='bottom' title='Delete Record'>Del</button>";
+										$RowxMeal .= "</td>";
+									$RowxMeal .= "</tr>";
+
+									//Overtime
+									$RowxOvertime .= "<tr>";
+										$RowxOvertime .= "<td width='30%'>";
+										$RowxOvertime .= "<input type='hidden' name='ListOvertime[".$nomor.$num3."][code_group]' id='code_groupo_".$nomor."_".$num3."' class='form-control input-md' value='".$valx_vt['code_group']."'>";
+										$RowxOvertime .= "<input type='text' name='ListOvertime[".$nomor.$num3."][spec]' id='speco_".$nomor."_".$num3."' class='form-control input-md' readonly value='".getMP($valx_vt['code_group'],'man_power_new')."'>";
+										$RowxOvertime .= "</td>";
+										$RowxOvertime .= "<td width='13%'>";
+										$RowxOvertime .= "<input type='text' name='ListOvertime[".$nomor.$num3."][jml_orang]' id='jml_orango_".$nomor."_".$num3."' readonly class='form-control input-md' placeholder='Amount People'>";
+										$RowxOvertime .= "</td>";
+										$RowxOvertime .= "<td width='12%'>";
+										$RowxOvertime .= "<input type='text' name='ListOvertime[".$nomor.$num3."][jml_hari]' id='jml_hario_".$nomor."_".$num3."' readonly class='form-control input-md dayT_".$nomor."' placeholder='Amount (Day)'  value='".$SumTP."'>";
+										$RowxOvertime .= "</td>";
+										$RowxOvertime .= "<td width='12%'>";
+										$RowxOvertime .= "<input type='text' name='ListOvertime[".$nomor.$num3."][jml_jam]' id='jml_jamo_".$nomor."_".$num3."' class='form-control input-md' placeholder='Amount (Hour)'>";
+										$RowxOvertime .= "</td>";
+										$RowxOvertime .= "<td>";
+										$RowxOvertime .= "<input type='text' name='ListOvertime[".$nomor.$num3."][note]' id=noteo_".$nomor."_".$num3."' class='form-control input-md' placeholder='Note'>";
+										$RowxOvertime .= "</td>";
+										$RowxOvertime .= "<td align='center' width='6%'>";
+										$RowxOvertime .=		"<button type='button' disabled style='min-width:70px;' class='btn btn-danger btn-sm aDel' data-toggle='tooltip' data-placement='bottom' title='Delete Record'>Del</button>";
+										$RowxOvertime .= "</td>";
+									$RowxOvertime .= "</tr>";
+								}
+								//add komponent
+								$Rowx .= "<div id='mp_add_".$nomor."_".$no."'></div>";
+								$Rowx .= "<div><button type='button' class='btn btn-success btn-sm aAdd' data-num1='$nomor' data-num2='$no' data-numlast='$num3' data-tanda='mp_add_' data-tanda2='new'>Add Man Power</button></div>";
+
+							$Rowx .= "</td>";
+						$Rowx .= "</tr>";
+					$Rowx .= "</table>";
+				$Rowx .= "</td>";
+			$Rowx .= "</tr>";
+
+			$noNext = $no + 1;
+
+	 echo json_encode(array(
+		 	'std_time' => $std_time,
+			'code_work' => $code_work,
+		 	'nomor'			=> $nomor,
+			'rowx'			=> $Rowx,
+			'row_meal'	=> $RowxMeal,
+			'overtime'	=> $RowxOvertime
+	 ));
+	}
+
+	public function list_work_det2(){
+		$code_work 	= $this->uri->segment(3);
+		$nomor 		= $this->uri->segment(4);
+
+		//list
+		$consumable	= $this->db->query("SELECT * FROM con_nonmat_new ORDER BY category ASC")->result_array();
+		$man_power	= $this->db->query("SELECT * FROM man_power_new ORDER BY category ASC")->result_array();
+		$vehicle	= $this->db->query("SELECT * FROM vehicle_tool_new ORDER BY category ASC")->result_array();
+		$heavy		= $this->db->query("SELECT * FROM heavy_equipment_new ORDER BY category ASC")->result_array();
+		$location	= $this->db->query("SELECT * FROM region ORDER BY urut ASC")->result_array();
+		$unit		= $this->db->query("SELECT * FROM list WHERE origin='con_nonmat' AND category='satuan' ORDER BY urut ASC")->result_array();
+
+		$restVT = $this->db->query("SELECT * FROM work_detail_vehicle_tool WHERE code_work='".$code_work."' AND deleted='N' ORDER BY id ASC ")->result_array();
+		$restCN = $this->db->query("SELECT * FROM work_detail_con_nonmat WHERE code_work='".$code_work."' AND deleted='N' ORDER BY id ASC ")->result_array();
+		$restMP = $this->db->query("SELECT * FROM work_detail_man_power WHERE code_work='".$code_work."' AND deleted='N' ORDER BY id ASC ")->result_array();
+
+		$restDet1 = $this->db->get_where('work_detail_detail', array('code_work'=>$code_work,'tipe'=>'heavy equipment','deleted'=>'N'))->result_array();
+		$restDet2 = $this->db->get_where('work_detail_detail', array('code_work'=>$code_work,'tipe'=>'tools','deleted'=>'N'))->result_array();
+		$restDet3 = $this->db->get_where('work_detail_detail', array('code_work'=>$code_work,'tipe'=>'consumable','deleted'=>'N'))->result_array();
+		$restDet4 = $this->db->get_where('work_detail_detail', array('code_work'=>$code_work,'tipe'=>'man power','deleted'=>'N'))->result_array();
+
+		 $query	 	= "SELECT * FROM work_detail WHERE code_work='".$code_work."' AND deleted='N'";
+		$get_work	= $this->db->select('total_time')->get_where('work_header', array('code_work'=>$code_work))->result();
+		$std_time 	= (!empty($get_work))?$get_work[0]->total_time:0;
+		$no = 0;
+		$Rowx = "";
+		$RowxMeal = "";
+		$RowxOvertime = "";
+		$SumTP = 0;
+		// $Rowx .= "<tr id='tr_".$nomor."'>";
+			$Rowx .= "<td width='100%' colspan='2'>";
+				$Rowx .= "<table id='my-grid' class='table table-striped table-bordered table-hover table-condensed' width='100%'>";
+					$Rowx .= "<tr class='bg-purple'>";
+						$Rowx .= "<th class='text-center' width='50%'>Heavy Equipment</th>";
+						$Rowx .= "<th class='text-center' width='50%'>Tools Equipment</th>";
+					$Rowx .= "</tr>";
+					$Rowx .= "<tr class='tr_".$nomor."'>";
+						$Rowx .= "<td>";
+							$num1 = 0;
+							foreach($restDet1 AS $val_vt => $valx_vt){
+								$num1++;
+								$Rowx .= "<div style='margin-bottom: 6px;'>";
+									$Rowx .= "<div class='input-group'>";
+									$Rowx .= "<select name='ListDetail[".$nomor."][he][".$num1."][code_group]' class='chosen_select form-control he_".$nomor."_".$no."_".$num1."'>";
+									foreach($heavy AS $val_vtList => $valx_vtList){
+										$sel1 = ($valx_vtList['code_group'] == $valx_vt['code_group'])?'selected':'';
+										$Rowx .= "<option value='".$valx_vtList['code_group']."' $sel1>".strtoupper($valx_vtList['category']." - ".$valx_vtList['spec'])."</option>";
+									}
+									$Rowx .= "</select>";
+									$Rowx .= "<span class='input-group-addon cldelete aDel'><i class='fa fa-close'></i></span>";
+									$Rowx .= "<input type='text' name='ListDetail[".$nomor."][he][".$num1."][qty]' class='form-control widCtr autoNumeric0' placeholder='Qty'>";
+									$Rowx .= "</div>";
+								$Rowx .= "</div>";
+							}
+							//add komponent
+							$Rowx .= "<div id='he_add_".$nomor."_".$no."'></div>";
+							$Rowx .= "<div><button type='button' class='btn btn-success btn-sm aAdd' data-num1='$nomor' data-num2='$no' data-numlast='$num1' data-tanda='he_add_' data-tanda2='new'>Add Heavy Equipment</button></div>";
+						$Rowx .= "</td>";
+						$Rowx .= "<td>";
+							$num1 = 0;
+							foreach($restDet2 AS $val_vt => $valx_vt){
+								$num1++;
+								$Rowx .= "<div style='margin-bottom: 6px;'>";
+									$Rowx .= "<div class='input-group'>";
+									$Rowx .= "<select name='ListDetail[".$nomor."][vt][".$num1."][code_group]' class='chosen_select form-control vt_".$nomor."_".$no."_".$num1."'>";
+									foreach($vehicle AS $val_vtList => $valx_vtList){
+										$sel1 = ($valx_vtList['code_group'] == $valx_vt['code_group'])?'selected':'';
+										$Rowx .= "<option value='".$valx_vtList['code_group']."' $sel1>".strtoupper($valx_vtList['category']." - ".$valx_vtList['spec'])."</option>";
+									}
+									$Rowx .= "</select>";
+									$Rowx .= "<span class='input-group-addon cldelete aDel'><i class='fa fa-close'></i></span>";
+									$Rowx .= "<input type='text' name='ListDetail[".$nomor."][vt][".$num1."][qty]' class='form-control widCtr autoNumeric0' placeholder='Qty'>";
+									$Rowx .= "</div>";
+								$Rowx .= "</div>";
+							}
+							//add komponent
+							$Rowx .= "<div id='vt_add_".$nomor."_".$no."'></div>";
+							$Rowx .= "<div><button type='button' class='btn btn-success btn-sm aAdd' data-num1='$nomor' data-num2='$no' data-numlast='$num1' data-tanda='vt_add_' data-tanda2='new'>Add Tools Equipment</button></div>";
+						$Rowx .= "</td>";
+					$Rowx .= "</tr>";
+					$Rowx .= "<tr class='bg-purple'>";
+						$Rowx .= "<th class='text-center'>Consumable & APD</th>";
+						$Rowx .= "<th class='text-center'>Man Power</th>";
+					$Rowx .= "</tr>";
+					$Rowx .= "<tr class='tr_".$nomor."'>";
+						$Rowx .= "<td>";
+							//Consumable
+							$num2 = 0;
+							foreach($restDet3 AS $val_cn => $valx_cn){
+								$num2++;
+								$Rowx .= "<div style='margin-bottom: 6px;'>";
+								$Rowx .= "<div class='input-group'>";
+								$Rowx .= "<select name='ListDetail[".$nomor."][cn][".$num2."][code_group]' class='chosen_select form-control inline-blockd cn_".$nomor."_".$no."_".$num2."''>";
+								foreach($consumable AS $val_vtList => $valx_vtList){
+									$sel2 = ($valx_vtList['code_group'] == $valx_cn['code_group'])?'selected':'';
+									$Rowx .= "<option value='".$valx_vtList['code_group']."' $sel2>".strtoupper($valx_vtList['category']." - ".$valx_vtList['spec'])."</option>";
+								}
+								$Rowx .= "</select>";
+								$Rowx .= "<span class='input-group-addon cldelete aDel'><i class='fa fa-close'></i></span>";
+								$Rowx .= "<input type='text' name='ListDetail[".$nomor."][cn][".$num2."][qty]' class='form-control widCtr autoNumeric0' placeholder='Qty'>";
+								$Rowx .= "<span class='input-group-addon'></span>";
+								$Rowx .= "<select name='ListDetail[".$nomor."][cn][".$num2."][unit]' class='chosen_select form-control inline-block widCtrx'>";
+								foreach($unit AS $val_unit => $valx_unit){
+									$Rowx .= "<option value='".$valx_unit['category_list']."' >".strtoupper($valx_unit['view_'])."</option>";
+								}
+								$Rowx .= "</select>";
+								$Rowx .= "</div>";
+								$Rowx .= "</div>";
+							}
+							//add komponent
+							$Rowx .= "<div id='cn_add_".$nomor."_".$no."'></div>";
+							$Rowx .= "<div><button type='button' class='btn btn-success btn-sm aAdd' data-num1='$nomor' data-num2='$no' data-numlast='$num2' data-tanda='cn_add_' data-tanda2='new'>Add Consumable</button></div>";
+
+						$Rowx .= "</td>";
+						$Rowx .= "<td>";
+							//Man Power
+							$num3 = 0;
+							foreach($restDet4 AS $val_vt => $valx_vt){
+								$num3++;
+								$Rowx .= "<div style='margin-bottom: 6px;'>";
+								$Rowx .= "<div class='input-group'>";
+								$Rowx .= "<select name='ListDetail[".$nomor."][mp][".$num3."][code_group]' class='chosen_select form-control inline-block mp_".$nomor."_".$no."_".$num3."'>";
+								foreach($man_power AS $val_vtList => $valx_vtList){
+									$sel1 = ($valx_vtList['code_group'] == $valx_vt['code_group'])?'selected':'';
+									$Rowx .= "<option value='".$valx_vtList['code_group']."' $sel1>".strtoupper($valx_vtList['category']." - ".$valx_vtList['spec'])."</option>";
+								}
+								$Rowx .= "</select>";
+								$Rowx .= "<span class='input-group-addon cldelete aDel'><i class='fa fa-close'></i></span>";
+								$Rowx .= "<input type='text' name='ListDetail[".$nomor."][mp][".$num3."][qty]' data-no1='".$nomor."' data-no2='".$num3."' class='form-control widCtr chMPQty autoNumeric0' placeholder='Qty'>";
+								$Rowx .= "</div>";
+								$Rowx .= "</div>";
+
+								//Meal
+								$RowxMeal .= "<tr>";
+									$RowxMeal .= "<td width='30%'>";
+									$RowxMeal .= "<input type='hidden' name='ListMeal[".$nomor.$num3."][code_group]' id='code_groupm_".$nomor."_".$num3."' class='form-control input-md' value='".$valx_vt['code_group']."'>";
+									$RowxMeal .= "<input type='text' name='ListMeal[".$nomor.$num3."][spec]' id='specm_".$nomor."_".$num3."' class='form-control input-md' readonly value='".getMP($valx_vt['code_group'],'man_power_new')."'>";
+									$RowxMeal .= "</td>";
+									$RowxMeal .= "<td width='13%'>";
+									$RowxMeal .= "<select name='ListMeal[".$nomor.$num3."][area]' class='chosen_select form-control inline-block'>";
+									foreach($location AS $valL => $valxL){
+										$RowxMeal .= "<option value='".$valxL['region_code']."'>".strtoupper($valxL['region'])."</option>";
+									}
+									$RowxMeal .= "</select>";
+									$RowxMeal .= "</td>";
+									$RowxMeal .= "<td width='12%'>";
+									$RowxMeal .= "<input type='text' name='ListMeal[".$nomor.$num3."][jml_orang]' id='jml_orangm_".$nomor."_".$num3."' readonly class='form-control input-md' placeholder='Amount People'>";
+									$RowxMeal .= "</td>";
+									$RowxMeal .= "<td width='12%'>";
+									$RowxMeal .= "<input type='text' name='ListMeal[".$nomor.$num3."][jml_hari]' id='jml_harim_".$nomor."_".$num3."' readonly class='form-control input-md dayT_".$nomor."' placeholder='Amount (Day)' value='".$SumTP."'>";
+									$RowxMeal .= "</td>";
+									$RowxMeal .= "<td>";
+									$RowxMeal .= "<input type='text' name='ListMeal[".$nomor.$num3."][note]' id=notem_".$nomor."_".$num3."' class='form-control input-md' placeholder='Note'>";
+									$RowxMeal .= "</td>";
+									$RowxMeal .= "<td align='center' width='6%'>";
+									$RowxMeal .=		"<button type='button' disabled style='min-width:70px;' class='btn btn-danger btn-sm aDel' data-toggle='tooltip' data-placement='bottom' title='Delete Record'>Del</button>";
+									$RowxMeal .= "</td>";
+								$RowxMeal .= "</tr>";
+
+								//Overtime
+								$RowxOvertime .= "<tr>";
+									$RowxOvertime .= "<td width='30%'>";
+									$RowxOvertime .= "<input type='hidden' name='ListOvertime[".$nomor.$num3."][code_group]' id='code_groupo_".$nomor."_".$num3."' class='form-control input-md' value='".$valx_vt['code_group']."'>";
+									$RowxOvertime .= "<input type='text' name='ListOvertime[".$nomor.$num3."][spec]' id='speco_".$nomor."_".$num3."' class='form-control input-md' readonly value='".getMP($valx_vt['code_group'],'man_power_new')."'>";
+									$RowxOvertime .= "</td>";
+									$RowxOvertime .= "<td width='13%'>";
+									$RowxOvertime .= "<input type='text' name='ListOvertime[".$nomor.$num3."][jml_orang]' id='jml_orango_".$nomor."_".$num3."' readonly class='form-control input-md' placeholder='Amount People'>";
+									$RowxOvertime .= "</td>";
+									$RowxOvertime .= "<td width='12%'>";
+									$RowxOvertime .= "<input type='text' name='ListOvertime[".$nomor.$num3."][jml_hari]' id='jml_hario_".$nomor."_".$num3."' readonly class='form-control input-md dayT_".$nomor."' placeholder='Amount (Day)'  value='".$SumTP."'>";
+									$RowxOvertime .= "</td>";
+									$RowxOvertime .= "<td width='12%'>";
+									$RowxOvertime .= "<input type='text' name='ListOvertime[".$nomor.$num3."][jml_jam]' id='jml_jamo_".$nomor."_".$num3."' class='form-control input-md' placeholder='Amount (Hour)'>";
+									$RowxOvertime .= "</td>";
+									$RowxOvertime .= "<td>";
+									$RowxOvertime .= "<input type='text' name='ListOvertime[".$nomor.$num3."][note]' id=noteo_".$nomor."_".$num3."' class='form-control input-md' placeholder='Note'>";
+									$RowxOvertime .= "</td>";
+									$RowxOvertime .= "<td align='center' width='6%'>";
+									$RowxOvertime .=		"<button type='button' disabled style='min-width:70px;' class='btn btn-danger btn-sm aDel' data-toggle='tooltip' data-placement='bottom' title='Delete Record'>Del</button>";
+									$RowxOvertime .= "</td>";
+								$RowxOvertime .= "</tr>";
+							}
+							//add komponent
+							$Rowx .= "<div id='mp_add_".$nomor."_".$no."'></div>";
+							$Rowx .= "<div><button type='button' class='btn btn-success btn-sm aAdd' data-num1='$nomor' data-num2='$no' data-numlast='$num3' data-tanda='mp_add_' data-tanda2='new'>Add Man Power</button></div>";
+
+						$Rowx .= "</td>";
+					$Rowx .= "</tr>";
+				$Rowx .= "</table>";
+			$Rowx .= "</td>";
+		// $Rowx .= "</tr>";
+
+		$noNext = $no + 1;
+
+		echo json_encode(array(
+				'std_time' => $std_time,
+				'code_work' => $code_work,
+				'nomor'			=> $nomor,
+				'rowx'			=> $Rowx,
+				'row_meal'	=> $RowxMeal,
+				'overtime'	=> $RowxOvertime
+		));
+	}
+
+ 	public function add_dropdown(){
+		$num1 		= $this->uri->segment(3);
+		$num2 		= $this->uri->segment(4);
+		$numlast 	= $this->uri->segment(5) + 1;
+		$tanda 		= $this->uri->segment(6);
+		$tanda2 	= $this->uri->segment(7);
+
+		$tanda_name = substr($tanda, 0, 2);
+		if($tanda_name == 'vt'){
+			$judul = "Tools Equipment";
+			$table = "vehicle_tool_new";
+		}
+		if($tanda_name == 'he'){
+			$judul = "Heavy Equipment";
+			$table = "heavy_equipment_new";
+		}
+		if($tanda_name == 'cn'){
+			$judul = "Consumable";
+			$table = "con_nonmat_new";
+		}
+		if($tanda_name == 'mp'){
+			$judul = "Man Power";
+			$table = "man_power_new";
+		}
+		if($tanda_name == 'ap'){
+			$judul = "APD";
+			$table = "apd";
+		}
+		if($tanda_name == 'ak'){
+			$judul = "Akomodasi";
+			$table = "tb_view_akomodasi";
+		}
+
+		$td_plus = "";
+		 //list
+		 $list		= $this->db->query("SELECT * FROM $table WHERE deleted='N' ORDER BY category ASC, spec ASC")->result_array();
+		 if($tanda_name == 'mp'){
+			$list		= $this->db->query("SELECT a.code_group, a.spec, b.category FROM $table a LEFT JOIN man_power_category b ON a.category=b.id WHERE a.deleted='N' ORDER BY b.category ASC, a.spec ASC")->result_array();
+		}
+		 $unit		= $this->db->query("SELECT * FROM list WHERE origin='con_nonmat' AND category='satuan' ORDER BY urut ASC")->result_array();
+		 $urut		= $this->db->query("SELECT $tanda_name FROM urut WHERE code = 'add_project' LIMIT 1")->result();
+		 $urut_no 	= $urut[0]->$tanda_name;
+
+		$Rowx = "";
+		$RowxQ = "";
+		$Rowx .= "<div style='margin-bottom: 6px;'>";
+		// $Rowx .= "<div class='labDet ".$tanda_name."_".$num1."_".$num2."_".$numlast."'>$judul</div>";
+		$Rowx .= "<div class='input-group'>";
+		$Rowx .= "<select name='ListDetail[".$td_plus.$num1."][$tanda_name][0$urut_no][code_group]' class='chosen_select form-control inline-block'>";
+		$Rowx .= "<option>Select An Option</option>";
+			foreach($list AS $val_vtList => $valx_vtList){
+				$Rowx .= "<option value='".$valx_vtList['code_group']."'>".strtoupper($valx_vtList['category']." - ".$valx_vtList['spec'])."</option>";
+			}
+		$Rowx .= "</select>";
+		$Rowx .= "<span class='input-group-addon cldelete aDel'><i class='fa fa-close'></i></span>";
+		$Rowx .= "<input type='text' name='ListDetail[".$td_plus.$num1."][".$tanda_name."][0$urut_no][qty]' class='form-control input-md widCtr autoNumeric0' placeholder='Qty'>";
+		if($tanda_name == 'cn'){
+			$Rowx .= "<span class='input-group-addon'></span>";
+			$Rowx .= "<select name='ListDetail[".$td_plus.$num1."][".$tanda_name."][0$urut_no][unit]' class='chosen_select form-control inline-block widCtrx'>";
+			foreach($unit AS $val_unit => $valx_unit){
+				$Rowx .= "<option value='".$valx_unit['category_list']."' >".strtoupper($valx_unit['view_'])."</option>";
+			}
+			$Rowx .= "</select>";
+		}
+		$Rowx .= "</div>";
+		$Rowx .= "</div>";
+
+
+		$this->db->where('code', 'add_project');
+		$this->db->update('urut', array($tanda_name=>$urut_no+1));
+
+		echo json_encode(array(
+			 'num1' 		=> $num1,
+			 'num2' 		=> $num2,
+			 'numlast'	=> $numlast,
+			 'tanda'		=> $tanda,
+			 'rowx'			=> $Rowx,
+			 'rowxqty'	=> $RowxQ
+		));
+	}
+
+	public function getProject(){
+		$no_ipp = $this->uri->segment(3);
+		$query	 	= "SELECT * FROM ipp_header WHERE no_ipp='".$no_ipp."' LIMIT 1";
+		$Q_result	= $this->db->query($query)->result();
+		 echo json_encode(array(
+			 'project' => strtoupper($Q_result[0]->project),
+			 'location' => strtoupper($Q_result[0]->location)
+
+		 ));
+	}
+
+	public function modalDetail(){
+		$project_code = $this->uri->segment(3);
+		$tanda = $this->uri->segment(4);
+
+		$qHeader 		= "SELECT * FROM project_header WHERE project_code='".$project_code."'";
+		$qDetail 		= "SELECT * FROM project_detail_header WHERE project_code='".$project_code."' AND deleted='N'";
+
+		$header 		= $this->db->query($qHeader)->result();
+		$restDetail 	= $this->db->query($qDetail)->result_array();
+
+		$qDetailBQ 	= "SELECT * FROM project_detail_bq WHERE project_code='".$project_code."' AND deleted='N'";
+		$detail_bq 	= $this->db->query($qDetailBQ)->result_array();
+
+		$qDetailMeal 	= "SELECT *, MAX(jml_orang) AS jml_orang_, SUM(jml_hari) AS jml_hari_ FROM project_detail_akomodasi WHERE project_code='".$project_code."' AND category_ak='meal' AND deleted='N'  GROUP BY code_group";
+		$rMeal 				= $this->db->query($qDetailMeal)->result_array();
+
+		$qDetailOT 	= "SELECT *, MAX(jml_orang) AS jml_orang_ , SUM(jml_hari) AS jml_hari_ FROM project_detail_akomodasi WHERE project_code='".$project_code."' AND category_ak='overtime' AND deleted='N'  GROUP BY code_group";
+		$rOT 			= $this->db->query($qDetailOT)->result_array();
+
+		$qDetailHouse = "SELECT * FROM project_detail_akomodasi WHERE project_code='".$project_code."' AND category_ak='house' AND deleted='N'";
+		$rHouse 			= $this->db->query($qDetailHouse)->result_array();
+
+		$qDetailTrans = "SELECT * FROM project_detail_akomodasi WHERE project_code='".$project_code."' AND category_ak='trans' AND deleted='N'";
+		$rTrans 			= $this->db->query($qDetailTrans)->result_array();
+
+		$qDetailEtc 	= "SELECT * FROM project_detail_akomodasi WHERE project_code='".$project_code."' AND category_ak='etc' AND deleted='N'";
+		$rEtc 				= $this->db->query($qDetailEtc)->result_array();
+
+
+
+		$qDetailHE	= "SELECT a.*, MAX(a.qty) AS qty_, SUM(b.std_time) AS std_time FROM project_detail_process a INNER JOIN project_detail_header b ON a.project_code_det=b.project_code_det WHERE a.project_code='".$project_code."' AND a.tipe='heavy equipment' AND a.deleted='N' GROUP BY a.code_group, a.qty";
+		$rHE 		= $this->db->query($qDetailHE)->result_array();
+
+		$qDetailVT	= "SELECT a.*, MAX(a.qty) AS qty_, SUM(b.std_time) AS std_time FROM project_detail_process a INNER JOIN project_detail_header b ON a.project_code_det=b.project_code_det WHERE a.project_code='".$project_code."' AND a.tipe='tools' AND a.deleted='N' GROUP BY a.code_group, a.qty";
+		$rVT 		= $this->db->query($qDetailVT)->result_array();
+
+		$qDetailCN 	= "SELECT a.*, SUM(a.qty) AS qty_, SUM(b.std_time) AS std_time FROM project_detail_process a INNER JOIN project_detail_header b ON a.project_code_det=b.project_code_det WHERE a.project_code='".$project_code."' AND a.tipe='consumable' AND a.deleted='N' GROUP BY a.code_group, a.qty";
+		$rCN		= $this->db->query($qDetailCN)->result_array();
+
+		$qDetailMP 	= "SELECT a.*, MAX(a.qty) AS qty_, SUM(b.std_time) AS std_time FROM project_detail_process a INNER JOIN project_detail_header b ON a.project_code_det=b.project_code_det WHERE a.project_code='".$project_code."' AND a.tipe='man power' AND a.deleted='N' GROUP BY a.code_group";
+		$rMP		= $this->db->query($qDetailMP)->result_array();
+		// echo $qDetailVT;
+		$data = array(
+			'header' => $header,
+			'restDetail' => $restDetail,
+			'detail_bq' => $detail_bq,
+			'meal' => $rMeal,
+			'overtime' => $rOT,
+			'house' => $rHouse,
+			'trans' => $rTrans,
+			'etc' => $rEtc,
+			'he' => $rHE,
+			'vt' => $rVT,
+			'cn' => $rCN,
+			'mp' => $rMP,
+			'tanda' => $tanda
+		);
+
+		$this->load->view('Instalation/modalDetail', $data);
+	}
+
+	public function modalDetailPlan(){
+		$project_code = $this->uri->segment(3);
+		$tanda = $this->uri->segment(4);
+
+		$detail_bq 	= $this->db->select('SUM(std_time) AS day')->get_where('project_detail_header', array('project_code'=>$project_code))->result();
+
+		// $qDetailHE	= "SELECT a.*, MAX(a.qty) AS qty_ FROM project_detail_process a WHERE a.project_code='".$project_code."' AND a.tipe='heavy equipment' AND a.deleted='N' GROUP BY a.code_group";
+		// $rHE 		= $this->db->query($qDetailHE)->result_array();
+
+		// $qDetailVT	= "SELECT a.*, MAX(a.qty) AS qty_ FROM project_detail_process a WHERE a.project_code='".$project_code."' AND a.tipe='tools' AND a.deleted='N' GROUP BY a.code_group";
+		// $rVT 		= $this->db->query($qDetailVT)->result_array();
+
+		// $qDetailCN 	= "SELECT a.*, SUM(a.qty) AS qty_ FROM project_detail_process a WHERE a.project_code='".$project_code."' AND a.tipe='consumable' AND a.deleted='N' GROUP BY a.code_group";
+		// $rCN		= $this->db->query($qDetailCN)->result_array();
+
+		// $qDetailMP 	= "SELECT a.*, MAX(a.qty) AS qty_ FROM project_detail_process a WHERE a.project_code='".$project_code."' AND a.tipe='man power' AND a.deleted='N' GROUP BY a.code_group";
+		// $rMP		= $this->db->query($qDetailMP)->result_array();
+
+		$detail = $this->db->query("SELECT
+										a.code_work,
+										a.category,
+										a.std_time,
+										a.timeline,
+										b.tipe,
+										b.category as cat_tools,
+										b.spec,
+										b.qty
+									FROM
+										project_detail_header a
+										LEFT JOIN project_detail_process b ON a.project_code_det = b.project_code_det 
+									WHERE
+										a.project_code = '".$project_code."' 
+									ORDER BY
+										a.id ASC, b.tipe ASC")->result_array();
+		// echo $qDetailMP;
+		$data = array(
+			'sum_day' => $detail_bq,
+			// 'he' => $rHE,
+			// 'vt' => $rVT,
+			// 'cn' => $rCN,
+			// 'mp' => $rMP,
+			'detail' => $detail,
+			'tanda' => $tanda
+		);
+
+		$this->load->view('Instalation/modalDetailPlan', $data);
+	}
+
+	public function hapus(){
+		$code_work = $this->uri->segment(3);
+		$data_session	= $this->session->userdata;
+
+		$ArrPlant		= array(
+			'deleted' 		=> 'Y',
+			'deleted_by' 	=> $data_session['ORI_User']['username'],
+			'deleted_date' 	=> date('Y-m-d H:i:s')
+			);
+
+
+		$this->db->trans_start();
+		$this->db->where('project_code', $code_work);
+		$this->db->update('project_header', $ArrPlant);
+		$this->db->trans_complete();
+
+		if($this->db->trans_status() === FALSE){
+			$this->db->trans_rollback();
+			$Arr_Data	= array(
+				'pesan'		=>'Delete Project data failed. Please try again later ...',
+				'status'	=> 0
+			);
+		}
+		else{
+			$this->db->trans_commit();
+			$Arr_Data	= array(
+				'pesan'		=>'Delete Project data success. Thanks ...',
+				'status'	=> 1
+			);
+			history('Delete Project : '.$code_work);
+		}
+		echo json_encode($Arr_Data);
+	}
+
+	public function print_bq(){
+		$project_code	= $this->uri->segment(3);
+		$data_session	= $this->session->userdata;
+		$printby			= $data_session['ORI_User']['username'];
+		$koneksi			= akses_server_side();
+
+		include 'plusPrint.php';
+		$data_url			= base_url();
+		$Split_Beda		= explode('/',$data_url);
+		$Jum_Beda			= count($Split_Beda);
+		$Nama_Beda		= $Split_Beda[$Jum_Beda - 2];
+
+		history('Print BQ Project '.$project_code);
+		PrintBQ($Nama_Beda, $project_code, $koneksi, $printby);
+	}
+
+	public function request_approve(){
+		$id = $this->uri->segment(3);
+		$data_session	= $this->session->userdata;
+		$dateTime		= date('Y-m-d H:i:s');
+
+		$ArrUpdate = array(
+			'status' => 'WAITING APPROVE ESTIMATION PROJECT',
+			'aju_approved' => 'Y',
+			'aju_approved_by' => $data_session['ORI_User']['username'],
+			'aju_approved_date' => $dateTime
+		);
+
+
+		$this->db->trans_start();
+				$this->db->where('project_code', $id);
+				$this->db->update('project_header', $ArrUpdate);
+		$this->db->trans_complete();
+
+		if($this->db->trans_status() === FALSE){
+			$this->db->trans_rollback();
+			$Arr_Kembali	= array(
+				'pesan'		=> 'Approve data failed. Please try again later ...',
+				'status'	=> 2
+			);
+		}
+		else{
+			$this->db->trans_commit();
+			$Arr_Kembali	= array(
+				'pesan'		=> 'Approve data success. Thanks ...',
+				'status'	=> 1
+			);
+			history('Request approval project instalation code project : '.$id);
+		}
+
+		echo json_encode($Arr_Kembali);
+	}
+
+	public function get_cycletime($dim=null){
+		$result		= $this->db->get_where('cycletime', array('diameter'=>$dim))->result();
+		if(!empty($result)){
+			$alert 			= "Success. Data found.";
+			$cycletime 		= $result[0]->mh;
+			$mp 		= $result[0]->mp;
+			$ct 		= $result[0]->ct;
+			$color 			= "green";
+		}
+		if(empty($result)){
+			$alert 			= "Failed. Data not found, check master.";
+			$cycletime 		= 0;
+			$mp 		= 0;
+			$ct 		= 0;
+			$color 			= "red";
+		}
+		 echo json_encode(array(
+			 'alert' 		=> $alert,
+			 'cycletime' 	=> $cycletime,
+			 'mp' 	=> $mp,
+			 'ct' 	=> $ct,
+			 'color' 		=> $color
+		 ));
+	}
+
+	public function download_excel(){
+		//membuat objek PHPExcel
+		set_time_limit(0);
+		ini_set('memory_limit','1024M');
+		$id_inst		= $this->uri->segment(3);
+
+		$this->load->library("PHPExcel");
+		// $this->load->library("PHPExcel/Writer/Excel2007");
+		$objPHPExcel	= new PHPExcel();
+
+		$style_header = array(
+			'borders' => array(
+				'allborders' => array(
+					  'style' => PHPExcel_Style_Border::BORDER_THIN,
+					  'color' => array('rgb'=>'000000')
+				  )
+			),
+			'fill' => array(
+				'type' => PHPExcel_Style_Fill::FILL_SOLID
+			),
+			'font' => array(
+				'bold' => true,
+			),
+			'alignment' => array(
+				'horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_CENTER,
+				'vertical' => PHPExcel_Style_Alignment::VERTICAL_CENTER
+			)
+		);
+
+		$style_header2 = array(
+			'fill' => array(
+				'type' => PHPExcel_Style_Fill::FILL_SOLID,
+				'color' => array('rgb'=>'e3e3e3'),
+			),
+			'font' => array(
+				'bold' => true,
+			),
+			'alignment' => array(
+				'horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_CENTER,
+				'vertical' => PHPExcel_Style_Alignment::VERTICAL_CENTER
+			)
+		);
+
+		$styleArray = array(
+			  'alignment' => array(
+				'horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_CENTER
+			  ),
+			  'borders' => array(
+				'allborders' => array(
+					  'style' => PHPExcel_Style_Border::BORDER_THIN,
+					  'color' => array('rgb'=>'000000')
+				  )
+			)
+		  );
+		$styleArray3 = array(
+			  'alignment' => array(
+				'horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_LEFT
+			  ),
+			  'borders' => array(
+				'allborders' => array(
+					  'style' => PHPExcel_Style_Border::BORDER_THIN,
+					  'color' => array('rgb'=>'000000')
+				  )
+			)
+		  );
+		 $styleArray4 = array(
+			  'alignment' => array(
+				'horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_RIGHT
+			  ),
+			  'borders' => array(
+				'allborders' => array(
+					  'style' => PHPExcel_Style_Border::BORDER_THIN,
+					  'color' => array('rgb'=>'000000')
+				  )
+			)
+		  );
+	    $styleArray1 = array(
+			  'borders' => array(
+				  'allborders' => array(
+					  'style' => PHPExcel_Style_Border::BORDER_THIN
+				  )
+			  ),
+				'fill' => array(
+					'type' => PHPExcel_Style_Fill::FILL_SOLID,
+					'color' => array('rgb'=>'e3e3e3'),
+				),
+			  'alignment' => array(
+				'horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_RIGHT,
+				'vertical' => PHPExcel_Style_Alignment::VERTICAL_CENTER
+			  )
+		  );
+		$styleArray2 = array(
+			  'borders' => array(
+				  'allborders' => array(
+					  'style' => PHPExcel_Style_Border::BORDER_THIN
+				  )
+			  ),
+			  'alignment' => array(
+				'horizontal' => PHPExcel_Style_Alignment::HORIZONTAL_CENTER,
+				'vertical' => PHPExcel_Style_Alignment::VERTICAL_CENTER
+			  )
+		  );
+
+		$Arr_Bulan	= array(1=>'Jan','Feb','Mar','Apr','Mei','Jun','Jul','Aug','Sep','Oct','Nov','Dec');
+		$sheet 		= $objPHPExcel->getActiveSheet();
+
+		$qDetailBQ 	= "SELECT * FROM project_detail_w_det WHERE project_code='".$id_inst."' AND deleted='N'";
+		$numx 	= $this->db->query($qDetailBQ)->num_rows();
+
+		$Row		= 1;
+		$NewRow		= $Row+1;
+		$Col_Akhir	= $Cols	= getColsChar(6+$numx);
+		$sheet->setCellValue('A'.$Row, 'PLAN INSTALASI '.$id_inst);
+		$sheet->getStyle('A'.$Row.':'.$Col_Akhir.$NewRow)->applyFromArray($style_header2);
+		$sheet->mergeCells('A'.$Row.':'.$Col_Akhir.$NewRow);
+
+		$NewRow	= $NewRow +2;
+		$NextRow= $NewRow +1;
+
+		$sheet->setCellValue('A'.$NewRow, 'No');
+		$sheet->getStyle('A'.$NewRow.':A'.$NextRow)->applyFromArray($style_header);
+		$sheet->mergeCells('A'.$NewRow.':A'.$NextRow);
+		$sheet->getColumnDimension('A')->setAutoSize(true);
+
+		$sheet->setCellValue('B'.$NewRow, 'Category');
+		$sheet->getStyle('B'.$NewRow.':B'.$NextRow)->applyFromArray($style_header);
+		$sheet->mergeCells('B'.$NewRow.':B'.$NextRow);
+		$sheet->getColumnDimension('B')->setAutoSize(true);
+
+		$sheet->setCellValue('C'.$NewRow, 'Name');
+		$sheet->getStyle('C'.$NewRow.':C'.$NextRow)->applyFromArray($style_header);
+		$sheet->mergeCells('C'.$NewRow.':C'.$NextRow);
+		$sheet->getColumnDimension('C')->setAutoSize(true);
+
+		$sheet->setCellValue('D'.$NewRow, 'Specification');
+		$sheet->getStyle('D'.$NewRow.':D'.$NextRow)->applyFromArray($style_header);
+		$sheet->mergeCells('D'.$NewRow.':D'.$NextRow);
+		$sheet->getColumnDimension('D')->setAutoSize(true);
+
+		$sheet->setCellValue('E'.$NewRow, 'Job Name');
+		$sheet->getStyle('E'.$NewRow.':E'.$NextRow)->applyFromArray($style_header);
+		$sheet->mergeCells('E'.$NewRow.':E'.$NextRow);
+		$sheet->getColumnDimension('E')->setAutoSize(true);
+
+		$sheet->setCellValue('F'.$NewRow, 'Time (Day)');
+		$sheet->getStyle('F'.$NewRow.':F'.$NextRow)->applyFromArray($style_header);
+		$sheet->mergeCells('F'.$NewRow.':F'.$NextRow);
+		$sheet->getColumnDimension('F')->setAutoSize(true);
+
+
+		$num_x = $numx + 6;
+		$num = 0;
+		for($a=7; $a <= $num_x; $a++ ){
+			$num++;
+			$row_name = getColsChar($a);
+			$sheet->setCellValue($row_name.$NewRow, 'Day '.$num);
+			$sheet->getStyle($row_name.$NewRow.':'.$row_name.''.$NextRow)->applyFromArray($style_header);
+			$sheet->mergeCells($row_name.$NewRow.':'.$row_name.''.$NextRow);
+			$sheet->getColumnDimension($row_name)->setAutoSize(false);
+		}
+
+		$qDetailVT	= "SELECT a.*, a.qty AS qty_, COUNT(b.std_time) AS std_time, c.category AS proses, b.work_process FROM project_detail_w_det_vehicle_tool a LEFT JOIN project_detail_w_header c ON a.project_code_det=c.project_code_det LEFT JOIN project_detail_w_det b ON c.project_code_det=b.project_code_det WHERE a.project_code='".$id_inst."' AND b.project_code='".$id_inst."' AND a.deleted='N' GROUP BY a.id";
+		$vehicle 		= $this->db->query($qDetailVT)->result_array();
+
+		$qDetailCN 	= "SELECT a.*, a.qty AS qty_, COUNT(b.std_time) AS std_time, c.category AS proses, b.work_process FROM project_detail_w_det_con_nonmat a LEFT JOIN project_detail_w_header c ON a.project_code_det=c.project_code_det LEFT JOIN project_detail_w_det b ON c.project_code_det=b.project_code_det WHERE a.project_code='".$id_inst."' AND b.project_code='".$id_inst."' AND a.deleted='N' GROUP BY a.id";
+		$consumable	= $this->db->query($qDetailCN)->result_array();
+
+		$qDetailMP 	= "SELECT a.*, a.qty AS qty_, COUNT(b.std_time) AS std_time, c.category AS proses, b.work_process FROM project_detail_w_det_man_power a LEFT JOIN project_detail_w_header c ON a.project_code_det=c.project_code_det LEFT JOIN project_detail_w_det b ON c.project_code_det=b.project_code_det WHERE a.project_code='".$id_inst."' AND b.project_code='".$id_inst."' AND a.deleted='N' GROUP BY a.id";
+		$man_power	= $this->db->query($qDetailMP)->result_array();
+
+		$sum_day 	= $this->db->query($qDetailBQ)->result_array();
+
+		if($vehicle){
+			$awal_row	= $NextRow;
+			$no	= 0;
+			foreach($vehicle as $key => $row_Cek){
+				$no++;
+				$awal_row++;
+				$awal_col	= 0;
+
+				$awal_col++;
+				$nomorx		= $no;
+				$Cols		= getColsChar($awal_col);
+				$sheet->setCellValue($Cols.$awal_row, $nomorx);
+				$sheet->getStyle($Cols.$awal_row)->applyFromArray($styleArray3);
+
+				$awal_col++;
+				$id_bqx		= "Alat Berat";
+				$Cols		= getColsChar($awal_col);
+				$sheet->setCellValue($Cols.$awal_row, $id_bqx);
+				$sheet->getStyle($Cols.$awal_row)->applyFromArray($styleArray3);
+
+				$awal_col++;
+				$id_bqx		= $row_Cek['category'];
+				$Cols		= getColsChar($awal_col);
+				$sheet->setCellValue($Cols.$awal_row, $id_bqx);
+				$sheet->getStyle($Cols.$awal_row)->applyFromArray($styleArray3);
+
+				$awal_col++;
+				$project	= strtolower($row_Cek['spec']);
+				$Cols		= getColsChar($awal_col);
+				$sheet->setCellValue($Cols.$awal_row, $project);
+				$sheet->getStyle($Cols.$awal_row)->applyFromArray($styleArray3);
+
+				$awal_col++;
+				$id_category	= $row_Cek['proses'];
+				$Cols			= getColsChar($awal_col);
+				$sheet->setCellValue($Cols.$awal_row, $id_category);
+				$sheet->getStyle($Cols.$awal_row)->applyFromArray($styleArray3);
+
+				$awal_col++;
+				$liner	= $row_Cek['std_time']." Day";
+				$Cols			= getColsChar($awal_col);
+				$sheet->setCellValue($Cols.$awal_row, $liner);
+				$sheet->getStyle($Cols.$awal_row)->applyFromArray($styleArray4);
+
+				foreach($sum_day AS $val2 => $valx2){
+					$same = ($row_Cek['project_code_det'] == $valx2['project_code_det'])?$row_Cek['qty_']:'-';
+					$color = ($row_Cek['project_code_det'] == $valx2['project_code_det'])?$styleArray1:$styleArray4;
+
+					$awal_col++;
+					$liner	= $same;
+					$Cols		= getColsChar($awal_col);
+					$sheet->setCellValue($Cols.$awal_row, $liner);
+					$sheet->getStyle($Cols.$awal_row)->applyFromArray($color);
+				}
+
+			}
+
+		}
+
+		if($consumable){
+			$awal_row	= $awal_row;
+			$no	= $nomorx;
+			foreach($consumable as $key => $row_Cek){
+				$no++;
+				$awal_row++;
+				$awal_col	= 0;
+
+				$awal_col++;
+				$nomorx		= $no;
+				$Cols		= getColsChar($awal_col);
+				$sheet->setCellValue($Cols.$awal_row, $nomorx);
+				$sheet->getStyle($Cols.$awal_row)->applyFromArray($styleArray3);
+
+				$awal_col++;
+				$id_bqx		= "Consumable";
+				$Cols		= getColsChar($awal_col);
+				$sheet->setCellValue($Cols.$awal_row, $id_bqx);
+				$sheet->getStyle($Cols.$awal_row)->applyFromArray($styleArray3);
+
+				$awal_col++;
+				$id_bqx		= $row_Cek['category'];
+				$Cols		= getColsChar($awal_col);
+				$sheet->setCellValue($Cols.$awal_row, $id_bqx);
+				$sheet->getStyle($Cols.$awal_row)->applyFromArray($styleArray3);
+
+				$awal_col++;
+				$project	= strtolower($row_Cek['spec']);
+				$Cols		= getColsChar($awal_col);
+				$sheet->setCellValue($Cols.$awal_row, $project);
+				$sheet->getStyle($Cols.$awal_row)->applyFromArray($styleArray3);
+
+				$awal_col++;
+				$id_category	= $row_Cek['proses'];
+				$Cols			= getColsChar($awal_col);
+				$sheet->setCellValue($Cols.$awal_row, $id_category);
+				$sheet->getStyle($Cols.$awal_row)->applyFromArray($styleArray3);
+
+				$awal_col++;
+				$liner	= $row_Cek['std_time']." Day";
+				$Cols			= getColsChar($awal_col);
+				$sheet->setCellValue($Cols.$awal_row, $liner);
+				$sheet->getStyle($Cols.$awal_row)->applyFromArray($styleArray4);
+
+				foreach($sum_day AS $val2 => $valx2){
+					$same = ($row_Cek['project_code_det'] == $valx2['project_code_det'])?$row_Cek['qty_']:'-';
+					$color = ($row_Cek['project_code_det'] == $valx2['project_code_det'])?$styleArray1:$styleArray4;
+
+					$awal_col++;
+					$liner	= $same;
+					$Cols		= getColsChar($awal_col);
+					$sheet->setCellValue($Cols.$awal_row, $liner);
+					$sheet->getStyle($Cols.$awal_row)->applyFromArray($color);
+				}
+
+			}
+
+		}
+
+		if($man_power){
+			$awal_row	= $awal_row;
+			$no	= $nomorx;
+			foreach($man_power as $key => $row_Cek){
+				$no++;
+				$awal_row++;
+				$awal_col	= 0;
+
+				$awal_col++;
+				$nomorx		= $no;
+				$Cols		= getColsChar($awal_col);
+				$sheet->setCellValue($Cols.$awal_row, $nomorx);
+				$sheet->getStyle($Cols.$awal_row)->applyFromArray($styleArray3);
+
+				$awal_col++;
+				$id_bqx		= "Man Power";
+				$Cols		= getColsChar($awal_col);
+				$sheet->setCellValue($Cols.$awal_row, $id_bqx);
+				$sheet->getStyle($Cols.$awal_row)->applyFromArray($styleArray3);
+
+				$awal_col++;
+				$id_bqx		= $row_Cek['category'];
+				$Cols		= getColsChar($awal_col);
+				$sheet->setCellValue($Cols.$awal_row, $id_bqx);
+				$sheet->getStyle($Cols.$awal_row)->applyFromArray($styleArray3);
+
+				$awal_col++;
+				$project	= strtolower($row_Cek['spec']);
+				$Cols		= getColsChar($awal_col);
+				$sheet->setCellValue($Cols.$awal_row, $project);
+				$sheet->getStyle($Cols.$awal_row)->applyFromArray($styleArray3);
+
+				$awal_col++;
+				$id_category	= $row_Cek['proses'];
+				$Cols			= getColsChar($awal_col);
+				$sheet->setCellValue($Cols.$awal_row, $id_category);
+				$sheet->getStyle($Cols.$awal_row)->applyFromArray($styleArray3);
+
+				$awal_col++;
+				$liner	= $row_Cek['std_time']." Day";
+				$Cols			= getColsChar($awal_col);
+				$sheet->setCellValue($Cols.$awal_row, $liner);
+				$sheet->getStyle($Cols.$awal_row)->applyFromArray($styleArray4);
+
+				foreach($sum_day AS $val2 => $valx2){
+					$same = ($row_Cek['project_code_det'] == $valx2['project_code_det'])?$row_Cek['qty_']:'-';
+					$color = ($row_Cek['project_code_det'] == $valx2['project_code_det'])?$styleArray1:$styleArray4;
+
+					$awal_col++;
+					$liner	= $same;
+					$Cols		= getColsChar($awal_col);
+					$sheet->setCellValue($Cols.$awal_row, $liner);
+					$sheet->getStyle($Cols.$awal_row)->applyFromArray($color);
+				}
+
+			}
+
+		}
+
+
+		$sheet->setTitle('Excel Plan Instalasi');
+		//mulai menyimpan excel format xlsx, kalau ingin xls ganti Excel2007 menjadi Excel5
+		$objWriter		= PHPExcel_IOFactory::createWriter($objPHPExcel, 'Excel5');
+		ob_end_clean();
+		//sesuaikan headernya
+		header("Last-Modified: " . gmdate("D, d M Y H:i:s") . " GMT");
+		header("Cache-Control: no-store, no-cache, must-revalidate");
+		header("Cache-Control: post-check=0, pre-check=0", false);
+		header("Pragma: no-cache");
+		header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+		//ubah nama file saat diunduh
+		header('Content-Disposition: attachment;filename="Plan Instalasi '.$id_inst.' '.date('YmdHis').'.xls"');
+		//unduh file
+		$objWriter->save("php://output");
+	}
+
+	//===============================================================================================================
+	//=====================================APPROVE===================================================================
+	//===============================================================================================================
+
+	public function approve_project(){
+		$controller			= ucfirst(strtolower($this->uri->segment(1)));
+		$Arr_Akses			= getAcccesmenu($controller);
+		if($Arr_Akses['read'] !='1'){
+			$this->session->set_flashdata("alert_data", "<div class=\"alert alert-warning\" id=\"flash-message\">You Don't Have Right To Access This Page, Please Contact Your Administrator....</div>");
+			redirect(site_url('dashboard'));
+		}
+
+		$data_Group			= $this->master_model->getArray('groups',array(),'id','name');
+		$data = array(
+			'title'			=> 'Indeks Of Approved Instalation',
+			'action'		=> 'approve',
+			'row_group'		=> $data_Group,
+			'akses_menu'	=> $Arr_Akses
+		);
+		history('View Data Approve Instalation');
+		$this->load->view('Instalation/approve',$data);
+	}
+
+	public function data_side_approve(){
+		$this->instalation_model->get_json_approve();
+	}
+
+	public function approve(){
+		$id = $this->uri->segment(3);
+		$data_session	= $this->session->userdata;
+		$dateTime		= date('Y-m-d H:i:s');
+
+		$ArrUpdate = array(
+			'status' => 'WAITING COSTING PROJECT',
+			'approved' => 'Y',
+			'approved_by' => $data_session['ORI_User']['username'],
+			'approved_date' => $dateTime
+		);
+
+		$this->db->trans_start();
+				$this->db->where('project_code', $id);
+				$this->db->update('project_header', $ArrUpdate);
+		$this->db->trans_complete();
+
+		if($this->db->trans_status() === FALSE){
+			$this->db->trans_rollback();
+			$Arr_Kembali	= array(
+				'pesan'		=> 'Approve data failed. Please try again later ...',
+				'status'	=> 2
+			);
+		}
+		else{
+			$this->db->trans_commit();
+			$Arr_Kembali	= array(
+				'pesan'		=> 'Approve data success. Thanks ...',
+				'status'	=> 1
+			);
+			history('Approve project instalation (next costing project) code project : '.$id);
+		}
+
+		echo json_encode($Arr_Kembali);
+	}
+
+	public function dialog_reject(){
+		if($this->input->post()){
+			$id = $this->uri->segment(3);
+			$data = $this->input->post();
+			$data_session	= $this->session->userdata;
+			$dateTime		= date('Y-m-d H:i:s');
+
+			$reason = strtolower($data['reason_approved']);
+
+			$ArrUpdate = array(
+				'status' => 'WAITING ESTIMATION PROJECT',
+				'aju_approved' => 'N',
+				'aju_approved_by' => $data_session['ORI_User']['username'],
+				'aju_approved_date' => $dateTime,
+				'reason_approved' => $reason
+			);
+
+			$this->db->trans_start();
+					$this->db->where('project_code', $id);
+					$this->db->update('project_header', $ArrUpdate);
+			$this->db->trans_complete();
+
+			if($this->db->trans_status() === FALSE){
+				$this->db->trans_rollback();
+				$Arr_Kembali	= array(
+					'pesan'		=> 'Approve data failed. Please try again later ...',
+					'status'	=> 2
+				);
+			}
+			else{
+				$this->db->trans_commit();
+				$Arr_Kembali	= array(
+					'pesan'		=> 'Approve data success. Thanks ...',
+					'status'	=> 1
+				);
+				history('Reject project instalation code project : '.$id);
+			}
+
+			echo json_encode($Arr_Kembali);
+		}
+		else{
+			$id			= $this->uri->segment(3);
+			$data = array(
+				'id'	=> $id
+			);
+			$this->load->view('Instalation/dialog_reject',$data);
+		}
+	}
+
+}
