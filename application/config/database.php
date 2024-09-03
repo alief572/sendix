@@ -97,10 +97,10 @@ $db['default'] = array(
 
 $db['costing'] = array(
 	'dsn'	=> '',
-	'hostname' => '120.29.159.11',
-	'username' => 'sentralsistem',
-	'password' => '$$sentral$$99oo',
-	'database' => 'sentralsistem',
+	'hostname' => 'localhost',
+	'username' => 'root',
+	'password' => 'sentral2022**',
+	'database' => 'db_sendix_sentral',
 	'port'	=> '3321',
 	'dbdriver' => 'mysqli',
 	'dbprefix' => '',
@@ -117,3 +117,26 @@ $db['costing'] = array(
 	'failover' => array(),
 	'save_queries' => TRUE
 );
+
+// $db['costing'] = array(
+// 	'dsn'	=> '',
+// 	'hostname' => '120.29.159.11',
+// 	'username' => 'sentralsistem',
+// 	'password' => '$$sentral$$99oo',
+// 	'database' => 'sentralsistem',
+// 	'port'	=> '3321',
+// 	'dbdriver' => 'mysqli',
+// 	'dbprefix' => '',
+// 	'pconnect' => FALSE,
+// 	'db_debug' => (ENVIRONMENT !== 'production'),
+// 	'cache_on' => FALSE,
+// 	'cachedir' => '',
+// 	'char_set' => 'utf8',
+// 	'dbcollat' => 'utf8_general_ci',
+// 	'swap_pre' => '',
+// 	'encrypt' => FALSE,
+// 	'compress' => FALSE,
+// 	'stricton' => FALSE,
+// 	'failover' => array(),
+// 	'save_queries' => TRUE
+// );
