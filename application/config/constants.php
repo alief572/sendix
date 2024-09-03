@@ -84,6 +84,6 @@ defined('EXIT_DATABASE')       OR define('EXIT_DATABASE', 8); // database error
 defined('EXIT__AUTO_MIN')      OR define('EXIT__AUTO_MIN', 9); // lowest automatically-assigned error code
 defined('EXIT__AUTO_MAX')      OR define('EXIT__AUTO_MAX', 125); // highest automatically-assigned error code
 
-define('DBACC', 'gl_ori_instalasi');
-define('DBHRIS', 'sentralsistem');
-define('DBERP', 'ori_instalasi');
+define('DBACC', 'gl_sendix');
+define('DBHRIS', 'db_sendix_sentral');
+define('DBERP', 'db_sendix');

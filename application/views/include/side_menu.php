@@ -30,7 +30,7 @@
 	<div class="wrapper">
 		<header class="main-header">
 			<a href="#" class="logo">      
-				<span class="logo-mini"><b>ORI</b></span>      
+				<span class="logo-mini"><b>SND</b></span>      
 				<span class="logo-lg"><b><?php echo $idt->nm_perusahaan;?></b></span>
 			</a>
 			
