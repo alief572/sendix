@@ -101,7 +101,6 @@ $db['costing'] = array(
 	'username' => 'root',
 	'password' => 'sentral2022**',
 	'database' => 'db_sendix_sentral',
-	'port'	=> '3321',
 	'dbdriver' => 'mysqli',
 	'dbprefix' => '',
 	'pconnect' => FALSE,
