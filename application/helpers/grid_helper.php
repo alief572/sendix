@@ -579,7 +579,7 @@
 				'hostname'	=> '203.160.58.170',
 				'hostuser'	=> 'root',
 				'hostpass'	=> 'sentral2022**',
-				'hostdb'	=> 'ori_instalasi'
+				'hostdb'	=> 'db_sendix'
 			);
 			return $Arr_Balik;
 		}

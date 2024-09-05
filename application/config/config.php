@@ -24,9 +24,9 @@ defined('BASEPATH') OR exit('No direct script access allowed');
 |
 */
 
-// $root = "https://" .$_SERVER['HTTP_HOST'];
-// $root .= str_replace(basename($_SERVER['SCRIPT_NAME']), "", $_SERVER['SCRIPT_NAME']);
-$root = "https://sentral.dutastudy.com/sendix/";
+$root = "https://" .$_SERVER['HTTP_HOST'];
+$root .= str_replace(basename($_SERVER['SCRIPT_NAME']), "", $_SERVER['SCRIPT_NAME']);
+// $root = "https://sentral.dutastudy.com/sendix/";
 $config['base_url'] = $root;
 
 

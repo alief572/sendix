@@ -97,7 +97,7 @@ $db['default'] = array(
 
 $db['costing'] = array(
 	'dsn'	=> '',
-	'hostname' => 'localhost',
+	'hostname' => '203.160.58.170',
 	'username' => 'root',
 	'password' => 'sentral2022**',
 	'database' => 'db_sendix_sentral',

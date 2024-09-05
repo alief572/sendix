@@ -816,8 +816,8 @@ function PrintIPP($Nama_APP, $no_ipp, $koneksi, $printby){
 	$conn = mysqli_connect($KONN['host'],$KONN['user'],$KONN['pass']);
 	mysqli_select_db($conn, $KONN['db']);
 
-	$sroot 		= $_SERVER['DOCUMENT_ROOT']."/ori_instalasi";
-	include $sroot."/application/libraries/MPDF57/mpdf.php";
+	// $sroot 		= $_SERVER['DOCUMENT_ROOT']."/ori_instalasi";
+	include "application/libraries/MPDF57/mpdf.php";
 	$mpdf=new mPDF('utf-8','A4-L');
 
 	set_time_limit(0);
@@ -833,7 +833,7 @@ function PrintIPP($Nama_APP, $no_ipp, $koneksi, $printby){
 	?>
 	<table class="gridtable2" border='1' width='100%' cellpadding='2'>
 		<tr>
-			<td align='center'><b>PT  ORI POLYTEC COMPOSITE</b></td>
+			<td align='center'><b>PT. SENTRAL DIGITALIZATION SYSTEM</b></td>
 		</tr>
 		<tr>
 			<td align='center'><b><h2>IDENTIFIKASI PERMINTAAN PELANGGAN (IPP)</h2></b></td>

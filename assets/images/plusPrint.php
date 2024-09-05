@@ -5115,7 +5115,7 @@ function PrintIPPx($Nama_APP, $no_ipp, $koneksi, $printby){
 	
 	$sroot 		= $_SERVER['DOCUMENT_ROOT'];
 	// include $sroot. "/".$Nama_APP."/application/libraries/PHPMailer/PHPMailerAutoload.php";
-	include $sroot."/".$Nama_APP."/application/libraries/MPDF57/mpdf.php";
+	include "application/libraries/MPDF57/mpdf.php";
 	$mpdf=new mPDF('utf-8','A4');
 	// $mpdf=new mPDF('utf-8','A4-L');
 	
@@ -5687,7 +5687,7 @@ function PrintIPP($Nama_APP, $no_ipp, $koneksi, $printby){
 	mysqli_select_db($conn, $KONN['db']);
 	
 	$sroot 		= $_SERVER['DOCUMENT_ROOT'];
-	include $sroot."/".$Nama_APP."/application/libraries/MPDF57/mpdf.php";
+	include "application/libraries/MPDF57/mpdf.php";
 	// $mpdf=new mPDF('utf-8','A4');
 	$mpdf=new mPDF('utf-8','A4-L');
 	

@@ -1,6 +1,6 @@
 <?php
 	$sroot 		= $_SERVER['DOCUMENT_ROOT'];
-	include $sroot."/ori_instalasi/application/libraries/MPDF57/mpdf.php";
+	include "application/libraries/MPDF57/mpdf.php";
 	$mpdf=new mPDF('utf-8','A4');
 	// $mpdf=new mPDF('utf-8','A4-L');
 
@@ -20,9 +20,9 @@
 
 <table class="gridtable3" border='1' width='100%' cellpadding='2'>
 		<tr>
-			<td width='20%'><img src='<?=$sroot;?>/ori_instalasi/assets/images/ori_logo.jpg' alt="" height='100' width='80' ></td>
+			<td width='20%'><img src='assets/images/sendigs_logo.png' alt="" height='100' width='100' ></td>
 			<td>
-				<h3>PT. ORI POLYTEC COMPOSITES</h3>
+				<h3>PT. SENTRAL SISTEM TEHNOLOGI</h3>
 				Jl. Akasia II Blok A No.3<br>
 				Delta Silicon Industrial Park, Lippo Cikarang Industrial Estate<br>
 				Phone : (62 21) 897-2193 (Hunting)<br>
